@@ -1,0 +1,34 @@
+name: uiux
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.6.1
+
+dependencies:
+  appwrite: ^13.1.1
+  flutter:
+    sdk: flutter
+  flutter_svg: ^2.0.17
+  pocketbase: ^0.21.0
+  provider: ^6.1.2
+  intl: ^0.20.2
+  carousel_slider: ^5.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  assets:
+    - assets/fonts/
+    - assets/images/
+
+  fonts:
+    - family: TimesNewRoman
+      fonts:
+        - asset: assets/fonts/TimesNewRoman.ttf
+  uses-material-design: true
+ 
