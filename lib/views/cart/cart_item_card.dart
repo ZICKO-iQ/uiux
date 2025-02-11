@@ -50,7 +50,7 @@ class CartItemCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               child: ValidatedNetworkImage(
                 imageUrl: item.image,
-                fit: BoxFit.cover,
+                fit: BoxFit.fitHeight,
               ),
             ),
           ),

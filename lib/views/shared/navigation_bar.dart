@@ -23,6 +23,11 @@ class CustomNavigationBar extends StatelessWidget {
             blurRadius: 30,
             offset: Offset(0, 10),
           ),
+          BoxShadow(  // Add this new shadow
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 4,
+            offset: Offset(0, -2),
+          ),
         ],
       ),
       child: ClipRRect(
