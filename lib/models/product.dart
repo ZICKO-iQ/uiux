@@ -3,6 +3,13 @@ import '../utils/image_validator.dart';
 import 'category.dart';
 
 class Product {
+  static const String DEFAULT_BRAND = 'Other';
+  static final Category defaultCategory = Category(
+    id: 'k9164x1pi9602tt',
+    name: 'Other',
+    image: '',
+  );
+
   final String id;
   final String viewName;
   final String description;
@@ -40,14 +47,28 @@ class Product {
     final List<String> rawImages = List<String>.from(record.get<List>('images'));
     final List<String> validatedImages = await ImageValidator.filterValidImages(rawImages);
 
+    // Handle empty or null brand
+    String brand = record.get<String>('brand');
+    if (brand.trim().isEmpty) {
+      brand = DEFAULT_BRAND;
+    }
+
+    // Handle missing or invalid category
+    Category category;
+    try {
+      category = (record.expand['category_id'] is List)
+          ? Category.fromRecord(record.expand['category_id']?[0] as RecordModel)
+          : Category.fromRecord(record.expand['category_id'] as RecordModel);
+    } catch (e) {
+      category = defaultCategory;
+    }
+
     return Product(
       id: record.id,
       viewName: record.get<String>('view_name'),
       description: record.get<String>('description'),
-      category: (record.expand['category_id'] is List)
-          ? Category.fromRecord(record.expand['category_id']?[0] as RecordModel)
-          : Category.fromRecord(record.expand['category_id'] as RecordModel),
-      brand: record.get<String>('brand'),
+      category: category,
+      brand: brand,
       price: record.get<int>('price'),
       discountPrice: record.get<int>('discount_price', null),
       images: validatedImages,

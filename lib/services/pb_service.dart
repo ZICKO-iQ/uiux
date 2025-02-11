@@ -5,5 +5,5 @@ class PocketbaseService {
   factory PocketbaseService() => _instance;
   PocketbaseService._internal();
   
-  final pb = PocketBase('http://10.0.2.2:8090');
+  final pb = PocketBase('http://192.168.0.102:8090');
 }

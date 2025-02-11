@@ -4,6 +4,9 @@ import '../models/product.dart';
 import '../models/category.dart';
 
 class ProductProvider extends ChangeNotifier {
+  static const String OTHER_LABEL = Product.DEFAULT_BRAND;
+  static const String UNCATEGORIZED_ID = 'default';
+
   final _pb = PocketbaseService().pb;
   List<Product> _products = [];
   List<Product> get products => _products;
@@ -22,7 +25,7 @@ class ProductProvider extends ChangeNotifier {
 
   String? _selectedCategoryId;
   String? _selectedBrand;
-  String _sortBy = 'none'; // none, price_asc, price_desc, name_asc, name_desc
+  String _sortBy = 'none'; 
 
   String? get selectedCategoryId => _selectedCategoryId;
   String? get selectedBrand => _selectedBrand;
@@ -64,7 +67,12 @@ class ProductProvider extends ChangeNotifier {
   }
 
   List<String> get availableBrands {
-    return _products.map((p) => p.brand).toSet().toList()..sort();
+    return _products
+        .map((p) => p.brand)
+        .where((brand) => brand.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
   }
 
   List<Product> get filteredAndSortedProducts {
@@ -72,12 +80,20 @@ class ProductProvider extends ChangeNotifier {
     
     // Apply category filter
     if (_selectedCategoryId != null) {
-      result = result.where((p) => p.category.id == _selectedCategoryId).toList();
+      if (_selectedCategoryId == UNCATEGORIZED_ID) {
+        result = result.where((p) => p.category.id == UNCATEGORIZED_ID).toList();
+      } else {
+        result = result.where((p) => p.category.id == _selectedCategoryId).toList();
+      }
     }
     
     // Apply brand filter
     if (_selectedBrand != null) {
-      result = result.where((p) => p.brand == _selectedBrand).toList();
+      if (_selectedBrand == OTHER_LABEL) {
+        result = result.where((p) => p.brand == OTHER_LABEL).toList();
+      } else {
+        result = result.where((p) => p.brand == _selectedBrand).toList();
+      }
     }
     
     // Apply sorting
@@ -179,17 +195,27 @@ class ProductProvider extends ChangeNotifier {
 
   int getCategoryCount(String? categoryId) {
     if (categoryId == null) return _products.length;
+    if (categoryId == UNCATEGORIZED_ID) {
+      return _products.where((p) => p.category.id == UNCATEGORIZED_ID).length;
+    }
     return _products.where((p) => p.category.id == categoryId).length;
   }
 
   int getBrandCount(String? brand, [String? categoryId]) {
     if (brand == null) return categoryId == null 
         ? _products.length 
-        : _products.where((p) => p.category.id == categoryId).length;
+        : getCategoryCount(categoryId);
         
-    var filteredProducts = _products.where((p) => p.brand == brand);
+    var filteredProducts = brand == OTHER_LABEL
+        ? _products.where((p) => p.brand == OTHER_LABEL)
+        : _products.where((p) => p.brand == brand);
+
     if (categoryId != null) {
-      filteredProducts = filteredProducts.where((p) => p.category.id == categoryId);
+      if (categoryId == UNCATEGORIZED_ID) {
+        filteredProducts = filteredProducts.where((p) => p.category.id == UNCATEGORIZED_ID);
+      } else {
+        filteredProducts = filteredProducts.where((p) => p.category.id == categoryId);
+      }
     }
     return filteredProducts.length;
   }
