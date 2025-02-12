@@ -33,4 +33,10 @@ class CartItem {
       size: 'Default',
     );
   }
+
+  get name => null;
+
+  get product => null;
+
+  get viewName => null;
 }

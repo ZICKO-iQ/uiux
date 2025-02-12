@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';
 import '../../core/colors.dart';
 import '../../providers/cart_provider.dart';
 import '../shared/app_bar.dart';
@@ -7,6 +8,37 @@ import 'cart_item_card.dart';
 
 class CartPage extends StatelessWidget {
   const CartPage({super.key});
+
+  String _formatCartDetails(CartProvider cart) {
+    final StringBuffer buffer = StringBuffer();
+    buffer.writeln('🛒 Shopping Cart Details');
+    buffer.writeln('═══════════════════════');
+    
+    for (var item in cart.items) {
+      buffer.writeln('📦 Product: ${item.title}');
+      buffer.writeln('   Quantity: ${item.quantity}');
+      buffer.writeln('   Price: \$${item.price.toStringAsFixed(2)}');
+      buffer.writeln('   Subtotal: \$${(item.price * item.quantity).toStringAsFixed(2)}');
+      buffer.writeln('───────────────────────');
+    }
+    
+    buffer.writeln('💰 Total Amount: \$${cart.totalAmount.toStringAsFixed(2)}');
+    return buffer.toString();
+  }
+
+  Future<void> _copyToClipboard(BuildContext context, CartProvider cart) async {
+    final String formattedText = _formatCartDetails(cart);
+    await Clipboard.setData(ClipboardData(text: formattedText));
+    
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cart details copied to clipboard'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +136,8 @@ class CartPage extends StatelessWidget {
                       height: 45,
                       child: ElevatedButton(
                         onPressed: () {
-                          // Implement checkout logic
+                          final cart = Provider.of<CartProvider>(context, listen: false);
+                          _copyToClipboard(context, cart);
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
