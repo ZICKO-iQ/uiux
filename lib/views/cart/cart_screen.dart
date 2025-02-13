@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';  // Add this import
 import '../../core/colors.dart';
 import '../../providers/cart_provider.dart';
 import '../shared/app_bar.dart';
@@ -11,18 +12,19 @@ class CartPage extends StatelessWidget {
 
   String _formatCartDetails(CartProvider cart) {
     final StringBuffer buffer = StringBuffer();
+    final numberFormat = NumberFormat("#,##0.00", "en_US");
     buffer.writeln('🛒 Shopping Cart Details');
     buffer.writeln('═══════════════════════');
     
     for (var item in cart.items) {
       buffer.writeln('📦 Product: ${item.title}');
       buffer.writeln('   Quantity: ${item.quantity}');
-      buffer.writeln('   Price: \$${item.price.toStringAsFixed(2)}');
-      buffer.writeln('   Subtotal: \$${(item.price * item.quantity).toStringAsFixed(2)}');
+      buffer.writeln('   Price: \$${numberFormat.format(item.price)}');
+      buffer.writeln('   Subtotal: \$${numberFormat.format(item.price * item.quantity)}');
       buffer.writeln('───────────────────────');
     }
     
-    buffer.writeln('💰 Total Amount: \$${cart.totalAmount.toStringAsFixed(2)}');
+    buffer.writeln('💰 Total Amount: \$${numberFormat.format(cart.totalAmount)}');
     return buffer.toString();
   }
 
@@ -82,11 +84,7 @@ class CartPage extends StatelessWidget {
                     return CartItemCard(
                       item: item,
                       onQuantityChanged: (quantity) {
-                        if (quantity < 1) {
-                          cart.removeItem(item.id);
-                        } else {
-                          cart.updateQuantity(item.id, quantity);
-                        }
+                        cart.updateQuantity(item.id, quantity);
                       },
                       onDelete: () => cart.removeItem(item.id),
                     );
@@ -122,7 +120,7 @@ class CartPage extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '\$${cart.totalAmount}',
+                          '\$${NumberFormat("#,###", "en_US").format(cart.totalAmount)}',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,

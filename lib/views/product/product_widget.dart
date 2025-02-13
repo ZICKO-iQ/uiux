@@ -17,6 +17,15 @@ class BuildItemCard extends StatelessWidget {
   bool get _hasValidPrice => product.price > 0 || 
       (product.discountPrice != null && product.discountPrice! > 0);
 
+  String _formatQuantity(double quantity, bool isKilo) {
+    if (isKilo) {
+      String formatted = quantity.toStringAsFixed(2).replaceAll(RegExp(r'\.?0*$'), '');
+      return '$formatted kg';
+    } else {
+      return quantity.toInt().toString();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -88,7 +97,7 @@ class BuildItemCard extends StatelessWidget {
             child: Consumer<CartProvider>(
               builder: (context, cart, child) {
                 final bool isInCart = cart.hasItem(product.id);
-                final int quantity = cart.getItemQuantity(product.id);
+                final double quantity = cart.getItemQuantity(product.id);  // Changed from int to double
 
                 return Container(
                   decoration: BoxDecoration(
@@ -136,7 +145,10 @@ class BuildItemCard extends StatelessWidget {
                             if (isInCart && _hasValidPrice) ...[
                               const SizedBox(width: 4),
                               Text(
-                                '$quantity',
+                                _formatQuantity(
+                                  quantity,
+                                  product.unit == ProductUnit.kilo
+                                ),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
@@ -211,15 +223,17 @@ class BuildItemCard extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        child: product.images.isNotEmpty
-            ? ValidatedNetworkImage(
-                imageUrl: product.images.first,
-                fit: BoxFit.fitHeight,
-              )
-            : Image.asset(
-                'assets/images/placeholder.png',
-                fit: BoxFit.fitHeight,
-              ),
+        child: Center(
+          child: product.images.isNotEmpty
+              ? ValidatedNetworkImage(
+                  imageUrl: product.images.first,
+                  fit: BoxFit.contain,
+                )
+              : Image.asset(
+                  'assets/images/placeholder.png',
+                  fit: BoxFit.contain,
+                ),
+        ),
       ),
     );
   }

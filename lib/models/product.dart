@@ -2,6 +2,11 @@ import 'package:pocketbase/pocketbase.dart';
 import '../utils/image_validator.dart';
 import 'category.dart';
 
+enum ProductUnit {
+  piece,
+  kilo
+}
+
 class Product {
   static const String DEFAULT_BRAND = 'Other';
   static final Category defaultCategory = Category(
@@ -18,6 +23,7 @@ class Product {
   final int price;
   final int? discountPrice;
   final List<String> images;
+  final ProductUnit unit;  // New field
   
   Product({
     required this.id,
@@ -26,6 +32,7 @@ class Product {
     required this.description,
     required this.category,  // Added required category
     required this.images,
+    required this.unit,    // New required parameter
     this.price = 0,
     this.discountPrice,
   });
@@ -40,6 +47,7 @@ class Product {
       images: List<String>.from(json['images'] ?? []),
       price: json['price']?.toInt() ?? 0,
       discountPrice: json['discountPrice']?.toInt(),
+      unit: json['unit'] == 'kilo' ? ProductUnit.kilo : ProductUnit.piece,  // New field conversion
     );
   }
 
@@ -72,6 +80,7 @@ class Product {
       price: record.get<int>('price'),
       discountPrice: record.get<int>('discount_price', null),
       images: validatedImages,
+      unit: record.get<String>('unit') == 'kilo' ? ProductUnit.kilo : ProductUnit.piece,  // New field
     );
   }
 }

@@ -5,8 +5,9 @@ class CartItem {
   final String title;
   final int price;
   final String image;
-  int quantity;
+  double quantity;
   final String size;
+  final ProductUnit unit;  // Add unit type
 
   CartItem({
     required this.id,
@@ -15,6 +16,7 @@ class CartItem {
     required this.image,
     required this.quantity,
     required this.size,
+    required this.unit,  // Add unit parameter
   });
 
   factory CartItem.fromProduct(Product product) {
@@ -29,8 +31,9 @@ class CartItem {
           ? product.discountPrice!
           : product.price,
       image: product.images.first,
-      quantity: 1,
+      quantity: product.unit == ProductUnit.kilo ? 0.25 : 1,  // Default quantity based on unit
       size: 'Default',
+      unit: product.unit,
     );
   }
 

@@ -21,16 +21,69 @@ class ProductDetailScreen extends StatefulWidget {
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
-  int _quantity = 1;
+  double _quantity = 1.0;  // Initialize with a default value
   int _selectedImageIndex = 0;
   final NumberFormat _currencyFormatter = NumberFormat.currency(
     symbol: '\$',
     decimalDigits: 0, // Set to 0 to remove decimal places
   );
+  late TextEditingController _quantityController;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize quantity based on product unit
+    _quantity = widget.product.unit == ProductUnit.kilo ? 1.0 : 1.0;
+    _quantityController = TextEditingController(text: _formatQuantity(_quantity, widget.product.unit == ProductUnit.kilo));
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    super.dispose();
+  }
 
   String _formatPrice(dynamic price) {
     if (price == null) return '';
     return _currencyFormatter.format(price.toInt()); // Convert to int instead of double
+  }
+
+  String _formatQuantity(double quantity, bool isKilo) {
+    if (isKilo) {
+      // Remove trailing zeros but keep necessary decimals for kilo
+      return quantity.toStringAsFixed(2).replaceAll(RegExp(r'\.?0*$'), '');
+    } else {
+      // For pieces, just show the integer
+      return quantity.toInt().toString();
+    }
+  }
+
+  double _roundToNearestStep(double value, bool isKilo) {
+    if (!isKilo) return value.roundToDouble();
+    
+    // For kilo products, round to nearest 0.25
+    const double step = 0.25;
+    return (value / step).round() * step;
+  }
+
+  void _updateQuantity(double newValue) {
+    final bool isKilo = widget.product.unit == ProductUnit.kilo;
+    final double minQuantity = isKilo ? 0.25 : 1.0;
+    final double maxQuantity = 100.0;
+    
+    // Cap the value at maxQuantity
+    if (newValue > maxQuantity) {
+      newValue = maxQuantity;
+    }
+    
+    if (newValue >= minQuantity) {
+      // Round the value before setting it
+      final double roundedValue = _roundToNearestStep(newValue, isKilo);
+      setState(() {
+        _quantity = roundedValue;
+        _quantityController.text = _formatQuantity(roundedValue, isKilo);
+      });
+    }
   }
 
   Widget _buildImageCarousel() {
@@ -87,6 +140,182 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
+  Widget _buildQuantitySelector() {
+    final bool isKilo = widget.product.unit == ProductUnit.kilo;
+    final double step = isKilo ? 0.25 : 1.0;
+    final double minQuantity = isKilo ? 0.25 : 1.0;
+
+    return Row(
+      children: [
+        const Text(
+          'Quantity:',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.primary),
+            borderRadius: BorderRadius.circular(12),
+            color: AppColors.primaryLight.withOpacity(0.1),
+          ),
+          child: Row(
+            children: [
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: const BorderRadius.horizontal(left: Radius.circular(11)),
+                  onTap: _quantity <= minQuantity 
+                      ? null 
+                      : () => _updateQuantity(_quantity - step),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Icon(
+                      Icons.remove,
+                      color: _quantity <= minQuantity 
+                          ? AppColors.notActiveBtn 
+                          : AppColors.primary,
+                    ),
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: () {
+                  _quantityController.clear();
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => AlertDialog(
+                      backgroundColor: AppColors.bgWhite,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      title: Row(
+                        children: [
+                          Icon(
+                            isKilo ? Icons.scale : Icons.numbers,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Enter Quantity',
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      content: Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: TextField(
+                          controller: _quantityController,
+                          keyboardType: isKilo 
+                              ? const TextInputType.numberWithOptions(decimal: true)
+                              : TextInputType.number,
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            hintText: isKilo ? '0.25' : '1',
+                            hintStyle: TextStyle(
+                              color: AppColors.primary.withOpacity(0.5),
+                            ),
+                          ),
+                          autofocus: true,
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      actions: [
+                        TextButton.icon(
+                          onPressed: () {
+                            _quantityController.text = _formatQuantity(_quantity, isKilo);
+                            Navigator.pop(context);
+                          },
+                          icon: const Icon(Icons.close),
+                          label: const Text('Cancel'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.notActiveBtn,
+                          ),
+                        ),
+                        FilledButton.icon(
+                          onPressed: () {
+                            try {
+                              String value = _quantityController.text.trim();
+                              if (value.isEmpty) {
+                                _quantityController.text = _formatQuantity(_quantity, isKilo);
+                              } else {
+                                double newValue = double.parse(value.replaceAll(RegExp(r'[^0-9.]'), ''));
+                                if (newValue >= minQuantity) {
+                                  _updateQuantity(newValue);
+                                } else {
+                                  _quantityController.text = _formatQuantity(_quantity, isKilo);
+                                }
+                              }
+                            } catch (e) {
+                              _quantityController.text = _formatQuantity(_quantity, isKilo);
+                            }
+                            Navigator.pop(context);
+                          },
+                          icon: const Icon(Icons.check),
+                          label: const Text('OK'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: AppColors.textPrimary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  width: 80, // Add fixed width
+                  alignment: Alignment.center, // Center the text
+                  child: Text(
+                    _formatQuantity(_quantity, isKilo),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: const BorderRadius.horizontal(right: Radius.circular(11)),
+                  onTap: () => _updateQuantity(_quantity + step),
+                  child: const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Icon(
+                      Icons.add,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool hasDiscount = widget.product.discountPrice != null && 
@@ -98,19 +327,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       appBar: CustomAppBar(title: widget.product.viewName),
       floatingActionButton: Consumer<CartProvider>(
         builder: (context, cart, child) {
-          final bool isInCart = cart.hasItem(widget.product.id);
-          
           return FloatingActionButton.extended(
             onPressed: () {
               try {
                 cart.addItem(widget.product, quantity: _quantity);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(
-                      isInCart 
-                        ? 'Updated quantity in cart' 
-                        : 'Added $_quantity item(s) to cart'
-                    ),
+                    content: Text('Added $_quantity item(s) to cart'),
                     duration: const Duration(milliseconds: 500),
                     behavior: SnackBarBehavior.floating,
                     margin: const EdgeInsets.all(8),
@@ -126,13 +349,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               }
             },
             backgroundColor: AppColors.primary,
-            icon: Icon(
-              isInCart ? Icons.shopping_cart : Icons.add_shopping_cart,
+            icon: const Icon(
+              Icons.add_shopping_cart,
               color: Colors.white,
             ),
-            label: Text(
-              isInCart ? 'Update Cart' : 'Add to Cart',
-              style: const TextStyle(
+            label: const Text(
+              'Add to Cart',
+              style: TextStyle(
                 color: Colors.white,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -190,13 +413,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 Row(
                   children: [
                     if (hasDiscount) ...[
-                      Text(
-                        _formatPrice(widget.product.discountPrice!),
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            _formatPrice(widget.product.discountPrice!),
+                            style: const TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '/ ${widget.product.unit == ProductUnit.kilo ? 'kilo' : 'piece'}',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(width: 16),
                       Text(
@@ -226,13 +463,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ),
                       ),
                     ] else ...[
-                      Text(
-                        _formatPrice(widget.product.price),
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            _formatPrice(widget.product.price),
+                            style: const TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '/ ${widget.product.unit == ProductUnit.kilo ? 'kilo' : 'piece'}',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ],
@@ -241,47 +492,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 const SizedBox(height: 24),
 
                 // Quantity Selector
-                Row(
-                  children: [
-                    const Text(
-                      'Quantity:',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.remove),
-                            onPressed: _quantity <= 1 
-                                ? null // Disable button when quantity is 1
-                                : () => setState(() => _quantity--),
-                            style: IconButton.styleFrom(
-                              foregroundColor: _quantity <= 1 
-                                  ? Colors.grey 
-                                  : null,
-                            ),
-                          ),
-                          Text(
-                            '$_quantity',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.add),
-                            onPressed: () => setState(() => _quantity++),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                _buildQuantitySelector(),
 
                 const SizedBox(height: 24),
 

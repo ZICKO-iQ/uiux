@@ -107,12 +107,10 @@ class CustomNavigationBar extends StatelessWidget {
                       right: 2,   // Changed from -5 to 2
                       child: Consumer<CartProvider>(
                         builder: (context, cart, child) {
-                          final totalItems = cart.items.fold(
-                            0, 
-                            (sum, item) => sum + item.quantity
-                          );
+                          // Changed from quantity sum to items length
+                          final itemCount = cart.items.length;
                           
-                          if (totalItems == 0) return const SizedBox.shrink();
+                          if (itemCount == 0) return const SizedBox.shrink();
                           
                           return Container(
                             padding: const EdgeInsets.all(3),  // Reduced padding from 4 to 3
@@ -126,7 +124,7 @@ class CustomNavigationBar extends StatelessWidget {
                             ),
                             child: Center(
                               child: Text(
-                                totalItems.toString(),
+                                itemCount.toString(),  // Using itemCount directly
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 10,

@@ -9,20 +9,26 @@ class CartProvider with ChangeNotifier {
   
   int get totalAmount => _items.fold(
     0,
-    (sum, item) => sum + (item.price * item.quantity),
+    (sum, item) => sum + (item.price * item.quantity).round(),
   );
 
-  void addItem(Product product, {int quantity = 1}) {
+  void addItem(Product product, {double? quantity}) {
     // Validate price before adding to cart
     if (product.price <= 0 && (product.discountPrice == null || product.discountPrice! <= 0)) {
       throw Exception('Cannot add item with invalid price to cart');
     }
 
+    quantity ??= product.unit == ProductUnit.kilo ? 0.25 : 1.0;
+    final double maxQuantity = 100.0;
+
     final existingItemIndex = _items.indexWhere((item) => item.id == product.id);
     
     if (existingItemIndex >= 0) {
       // Item already exists, increase quantity
-      _items[existingItemIndex].quantity += quantity;
+      final newQuantity = _items[existingItemIndex].quantity + quantity;
+      if (newQuantity <= maxQuantity) {
+        _items[existingItemIndex].quantity = newQuantity;
+      }
     } else {
       // Add new item
       _items.add(
@@ -33,8 +39,9 @@ class CartProvider with ChangeNotifier {
               ? product.discountPrice!
               : product.price,
           image: product.images.first,
-          quantity: quantity,
+          quantity: quantity <= maxQuantity ? quantity : maxQuantity,
           size: 'Default',
+          unit: product.unit,
         ),
       );
     }
@@ -45,7 +52,7 @@ class CartProvider with ChangeNotifier {
     return _items.any((item) => item.id == productId);
   }
 
-  int getItemQuantity(String productId) {
+  double getItemQuantity(String productId) {
     final item = _items.firstWhere(
       (item) => item.id == productId,
       orElse: () => CartItem(
@@ -55,6 +62,7 @@ class CartProvider with ChangeNotifier {
         image: '',
         quantity: 0,
         size: '',
+        unit: ProductUnit.piece,
       ),
     );
     return item.quantity;
@@ -65,11 +73,22 @@ class CartProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void updateQuantity(String id, int quantity) {
+  void updateQuantity(String id, double quantity) {
     final index = _items.indexWhere((item) => item.id == id);
     if (index >= 0) {
-      _items[index].quantity = quantity;
-      notifyListeners();
+      final item = _items[index];
+      final minQuantity = item.unit == ProductUnit.kilo ? 0.25 : 1.0;
+      final maxQuantity = 100.0;
+      
+      // Cap the quantity at maxQuantity
+      if (quantity > maxQuantity) {
+        quantity = maxQuantity;
+      }
+      
+      if (quantity >= minQuantity) {
+        _items[index].quantity = quantity;
+        notifyListeners();
+      }
     }
   }
 }

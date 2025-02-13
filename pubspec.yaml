@@ -31,4 +31,3 @@ flutter:
       fonts:
         - asset: assets/fonts/TimesNewRoman.ttf
   uses-material-design: true
- 
