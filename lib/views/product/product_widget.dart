@@ -4,7 +4,7 @@ import 'package:uiux/views/product/product_detail_screen.dart';
 import 'package:provider/provider.dart';
 import '../../core/colors.dart';
 import '../../providers/cart_provider.dart';
-import '../../utils/image_validation.dart';
+import '../../utils/image_validator.dart';
 
 class BuildItemCard extends StatelessWidget {
   const BuildItemCard({

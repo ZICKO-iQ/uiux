@@ -51,36 +51,38 @@ class Product {
     );
   }
 
-  static Future<Product> fromRecord(RecordModel record) async {
-    final List<String> rawImages = List<String>.from(record.get<List>('images'));
-    final List<String> validatedImages = await ImageValidator.filterValidImages(rawImages);
+  // New synchronous method for initial load
+  static Product fromRecordSync(RecordModel record) {
+    final expandData = record.expand['category_id'];
+    final categoryRecord = expandData != null && expandData.isNotEmpty 
+        ? expandData.first
+        : null;
 
-    // Handle empty or null brand
-    String brand = record.get<String>('brand');
-    if (brand.trim().isEmpty) {
-      brand = DEFAULT_BRAND;
-    }
+    final category = Category(
+      id: categoryRecord?.id ?? 'k9164x1pi9602tt',
+      name: categoryRecord?.data['name'] ?? 'Uncategorized',
+      image: categoryRecord?.data['image'] ?? '',
+    );
 
-    // Handle missing or invalid category
-    Category category;
-    try {
-      category = (record.expand['category_id'] is List)
-          ? Category.fromRecord(record.expand['category_id']?[0] as RecordModel)
-          : Category.fromRecord(record.expand['category_id'] as RecordModel);
-    } catch (e) {
-      category = defaultCategory;
-    }
+    final List<String> images = List<String>.from(record.data['images'] ?? []);
 
     return Product(
       id: record.id,
-      viewName: record.get<String>('view_name'),
-      description: record.get<String>('description'),
+      viewName: record.data['view_name'] ?? '',
+      description: record.data['description'] ?? '',
       category: category,
-      brand: brand,
-      price: record.get<int>('price'),
-      discountPrice: record.get<int>('discount_price', null),
-      images: validatedImages,
-      unit: record.get<String>('unit') == 'kilo' ? ProductUnit.kilo : ProductUnit.piece,  // New field
+      brand: record.data['brand']?.toString().trim().isNotEmpty == true 
+          ? record.data['brand'] 
+          : DEFAULT_BRAND,
+      price: (record.data['price'] ?? 0).toInt(),
+      discountPrice: record.data['discount_price']?.toInt(),
+      images: ImageValidator.getInitialImages(images),
+      unit: record.data['unit'] == 'kilo' ? ProductUnit.kilo : ProductUnit.piece,
     );
+  }
+
+  // Simplified to just use fromRecordSync
+  static Future<Product> fromRecord(RecordModel record) async {
+    return fromRecordSync(record);
   }
 }

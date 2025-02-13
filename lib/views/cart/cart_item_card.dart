@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import '../../core/colors.dart';
 import '../../models/cart_item.dart';
 import '../../models/product.dart';  // Add this import for ProductUnit
-import '../../utils/image_validation.dart';
+import '../../utils/image_validator.dart';  // Update from image_validation.dart
 
 class CartItemCard extends StatefulWidget {  // Change to StatefulWidget
   final CartItem item;

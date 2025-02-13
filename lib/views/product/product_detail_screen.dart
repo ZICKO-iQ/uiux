@@ -6,7 +6,7 @@ import 'package:uiux/models/product.dart';
 import 'package:uiux/providers/cart_provider.dart';
 import 'package:uiux/views/shared/app_bar.dart';
 import 'package:intl/intl.dart';
-import '../../utils/image_validation.dart';
+import '../../utils/image_validator.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
