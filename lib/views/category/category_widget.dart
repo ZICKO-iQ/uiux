@@ -25,11 +25,11 @@ class CategoryCard extends StatelessWidget {
         children: [
           ValidatedNetworkImage(
             imageUrl: image,
-            width: 100,  // Increased from 50
-            height: 100,  // Increased from 50
+            width: 80,
+            height: 80,  
             fit: BoxFit.contain,
           ),
-          const SizedBox(height: 5),  // Increased from 8
+          const SizedBox(height: 5),
           Text(
             name,
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),

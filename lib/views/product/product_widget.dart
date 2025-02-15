@@ -231,7 +231,7 @@ class BuildItemCard extends StatelessWidget {
 
   Widget _buildImageSection() {
     return Container(
-      height: 150,
+      height: 130,
       decoration: BoxDecoration(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
