@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../config/app_config.dart';
 
 class ImageValidator {
   static const Duration _timeout = Duration(seconds: 5);
@@ -9,22 +10,28 @@ class ImageValidator {
   static Future<bool> isValidImage(String imageUrl) async {
     if (imageUrl.isEmpty) return false;
     
-    // Allow certain known domains without validation
-    final uri = Uri.parse(imageUrl);
-    if (uri.host.contains('pocketbase') || 
-        uri.host.contains('localhost') ||
-        uri.host.contains('127.0.0.1')) {
-      return true;
-    }
-
+    Uri? uri;
     try {
+      uri = Uri.parse(imageUrl);
+      
+      // Accept our PocketBase URLs without validation using AppConfig
+      if (AppConfig.isValidHost(uri.host)) {
+        if (uri.port == AppConfig.PB_PORT && uri.path.contains('/api/files/')) {
+          return true;
+        }
+      }
+
       final response = await http.head(uri).timeout(_timeout);
       return response.statusCode < 400; // Accept any successful response
     } catch (e) {
+      print('Error validating image $imageUrl: $e');
       // If HEAD request fails, try GET request as fallback
       try {
-        final response = await http.get(uri).timeout(_timeout);
-        return response.statusCode < 400;
+        if (uri != null) {
+          final response = await http.get(uri).timeout(_timeout);
+          return response.statusCode < 400;
+        }
+        return false;
       } catch (e) {
         return false;
       }
@@ -34,10 +41,12 @@ class ImageValidator {
   static List<String> getInitialImages(List<String> images) {
     if (images.isEmpty) return [_fallbackImage];
     
-    // Filter out obviously invalid URLs
+    // Accept PocketBase URLs and regular URLs
     final validUrls = images.where((url) => 
       url.isNotEmpty && 
-      (url.startsWith('http://') || url.startsWith('https://'))
+      (url.startsWith('http://') || 
+       url.startsWith('https://') ||
+       url.contains('${AppConfig.apiUrl}/files/'))
     ).toList();
     
     return validUrls.isEmpty ? [_fallbackImage] : validUrls;

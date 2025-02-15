@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:uiux/core/colors.dart';
+import '../../utils/image_validator.dart';
 
 class CategoryCard extends StatelessWidget {
   final String name;
-  final String icon;
+  final String image;
 
   const CategoryCard({
     super.key,
     required this.name,
-    required this.icon,
+    required this.image,
   });
 
   @override
@@ -22,14 +23,16 @@ class CategoryCard extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            icon,
-            style: TextStyle(fontSize: 32),
+          ValidatedNetworkImage(
+            imageUrl: image,
+            width: 100,  // Increased from 50
+            height: 100,  // Increased from 50
+            fit: BoxFit.contain,
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 5),  // Increased from 8
           Text(
             name,
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
         ],
@@ -59,16 +62,16 @@ class BrandCard extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Image.asset(
-            imagePath,
-            height: 50,
-            width: 50,
+          ValidatedNetworkImage(
+            imageUrl: imagePath,
+            height: 80,  // Increased from 50
+            width: 80,   // Increased from 50
             fit: BoxFit.contain,
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 12),  // Increased from 8
           Text(
             name,
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
         ],

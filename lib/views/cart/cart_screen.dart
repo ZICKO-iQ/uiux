@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';  // Add this import
 import '../../core/colors.dart';
 import '../../providers/cart_provider.dart';
+import '../../utils/formatters.dart';  // Add this import
 import '../shared/app_bar.dart';
 import 'cart_item_card.dart';
 
@@ -12,19 +12,18 @@ class CartPage extends StatelessWidget {
 
   String _formatCartDetails(CartProvider cart) {
     final StringBuffer buffer = StringBuffer();
-    final numberFormat = NumberFormat("#,##0.00", "en_US");
     buffer.writeln('🛒 Shopping Cart Details');
     buffer.writeln('═══════════════════════');
     
     for (var item in cart.items) {
       buffer.writeln('📦 Product: ${item.title}');
-      buffer.writeln('   Quantity: ${item.quantity}');
-      buffer.writeln('   Price: \$${numberFormat.format(item.price)}');
-      buffer.writeln('   Subtotal: \$${numberFormat.format(item.price * item.quantity)}');
+      buffer.writeln('   Quantity: ${AppFormatters.formatQuantityWithUnit(item.quantity, item.unit)}');
+      buffer.writeln('   Price: ${AppFormatters.formatPrice(item.price)}');
+      buffer.writeln('   Subtotal: ${AppFormatters.formatPrice(item.price * item.quantity)}');
       buffer.writeln('───────────────────────');
     }
     
-    buffer.writeln('💰 Total Amount: \$${numberFormat.format(cart.totalAmount)}');
+    buffer.writeln('💰 Total Amount: ${AppFormatters.formatPrice(cart.totalAmount)}');
     return buffer.toString();
   }
 
@@ -120,8 +119,8 @@ class CartPage extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '\$${NumberFormat("#,###", "en_US").format(cart.totalAmount)}',
-                          style: TextStyle(
+                          AppFormatters.formatPrice(cart.totalAmount),
+                          style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: AppColors.primary,

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:uiux/core/colors.dart';
-import 'package:uiux/models/product.dart';
-import 'package:uiux/providers/cart_provider.dart';
-import 'package:uiux/views/shared/app_bar.dart';
-import 'package:intl/intl.dart';
+import '../../core/colors.dart';
+import '../../models/product.dart';
+import '../../providers/cart_provider.dart';
+import '../../utils/formatters.dart';  // Add this import
+import '../shared/app_bar.dart';
 import '../../utils/image_validator.dart';
+import '../../utils/quantity_validator.dart';  // Add this import
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
@@ -23,18 +24,19 @@ class ProductDetailScreen extends StatefulWidget {
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   double _quantity = 1.0;  // Initialize with a default value
   int _selectedImageIndex = 0;
-  final NumberFormat _currencyFormatter = NumberFormat.currency(
-    symbol: '\$',
-    decimalDigits: 0, // Set to 0 to remove decimal places
-  );
   late TextEditingController _quantityController;
 
   @override
   void initState() {
     super.initState();
     // Initialize quantity based on product unit
-    _quantity = widget.product.unit == ProductUnit.kilo ? 1.0 : 1.0;
-    _quantityController = TextEditingController(text: _formatQuantity(_quantity, widget.product.unit == ProductUnit.kilo));
+    _quantity = AppFormatters.getMinQuantity(widget.product.unit);
+    _quantityController = TextEditingController(
+      text: AppFormatters.formatQuantity(
+        _quantity,
+        widget.product.unit == ProductUnit.kilo
+      )
+    );
   }
 
   @override
@@ -43,47 +45,46 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     super.dispose();
   }
 
-  String _formatPrice(dynamic price) {
-    if (price == null) return '';
-    return _currencyFormatter.format(price.toInt()); // Convert to int instead of double
-  }
-
-  String _formatQuantity(double quantity, bool isKilo) {
-    if (isKilo) {
-      // Remove trailing zeros but keep necessary decimals for kilo
-      return quantity.toStringAsFixed(2).replaceAll(RegExp(r'\.?0*$'), '');
-    } else {
-      // For pieces, just show the integer
-      return quantity.toInt().toString();
-    }
-  }
-
-  double _roundToNearestStep(double value, bool isKilo) {
-    if (!isKilo) return value.roundToDouble();
-    
-    // For kilo products, round to nearest 0.25
-    const double step = 0.25;
-    return (value / step).round() * step;
-  }
-
   void _updateQuantity(double newValue) {
     final bool isKilo = widget.product.unit == ProductUnit.kilo;
-    final double minQuantity = isKilo ? 0.25 : 1.0;
-    final double maxQuantity = 100.0;
-    
-    // Cap the value at maxQuantity
-    if (newValue > maxQuantity) {
-      newValue = maxQuantity;
-    }
+    final double minQuantity = AppFormatters.getMinQuantity(widget.product.unit);
     
     if (newValue >= minQuantity) {
-      // Round the value before setting it
-      final double roundedValue = _roundToNearestStep(newValue, isKilo);
+      final cartProvider = Provider.of<CartProvider>(context, listen: false);
+      final (validatedQuantity, warning) = QuantityValidator.validateQuantity(
+        productId: widget.product.id,
+        requestedQuantity: newValue,
+        cartProvider: cartProvider,
+        context: context,
+      );
+      
+      if (warning != null) {
+        _showSnackBar(
+          warning,
+          backgroundColor: AppColors.warning,
+        );
+      }
+      
+      final double roundedValue = AppFormatters.roundQuantity(validatedQuantity, widget.product.unit);
       setState(() {
         _quantity = roundedValue;
-        _quantityController.text = _formatQuantity(roundedValue, isKilo);
+        _quantityController.text = AppFormatters.formatQuantity(roundedValue, isKilo);
       });
     }
+  }
+
+  void _showSnackBar(String message, {Color? backgroundColor}) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: backgroundColor,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(8),
+          duration: const Duration(seconds: 1),
+        ),
+      );
   }
 
   Widget _buildImageCarousel() {
@@ -238,7 +239,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       actions: [
                         TextButton.icon(
                           onPressed: () {
-                            _quantityController.text = _formatQuantity(_quantity, isKilo);
+                            _quantityController.text = AppFormatters.formatQuantity(_quantity, isKilo);
                             Navigator.pop(context);
                           },
                           icon: const Icon(Icons.close),
@@ -252,17 +253,32 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             try {
                               String value = _quantityController.text.trim();
                               if (value.isEmpty) {
-                                _quantityController.text = _formatQuantity(_quantity, isKilo);
+                                _quantityController.text = AppFormatters.formatQuantity(_quantity, isKilo);
                               } else {
                                 double newValue = double.parse(value.replaceAll(RegExp(r'[^0-9.]'), ''));
                                 if (newValue >= minQuantity) {
-                                  _updateQuantity(newValue);
+                                  final cartProvider = Provider.of<CartProvider>(context, listen: false);
+                                  final (validatedQuantity, warning) = QuantityValidator.validateQuantity(
+                                    productId: widget.product.id,
+                                    requestedQuantity: newValue,
+                                    cartProvider: cartProvider,
+                                    context: context,
+                                  );
+                                  
+                                  if (warning != null) {
+                                    _showSnackBar(
+                                      warning,
+                                      backgroundColor: AppColors.warning,
+                                    );
+                                  }
+                                  
+                                  _updateQuantity(validatedQuantity);
                                 } else {
-                                  _quantityController.text = _formatQuantity(_quantity, isKilo);
+                                  _quantityController.text = AppFormatters.formatQuantity(_quantity, isKilo);
                                 }
                               }
                             } catch (e) {
-                              _quantityController.text = _formatQuantity(_quantity, isKilo);
+                              _quantityController.text = AppFormatters.formatQuantity(_quantity, isKilo);
                             }
                             Navigator.pop(context);
                           },
@@ -286,7 +302,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   width: 80, // Add fixed width
                   alignment: Alignment.center, // Center the text
                   child: Text(
-                    _formatQuantity(_quantity, isKilo),
+                    AppFormatters.formatQuantity(_quantity, isKilo),
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -330,21 +346,28 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           return FloatingActionButton.extended(
             onPressed: () {
               try {
-                cart.addItem(widget.product, quantity: _quantity);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Added $_quantity item(s) to cart'),
-                    duration: const Duration(milliseconds: 500),
-                    behavior: SnackBarBehavior.floating,
-                    margin: const EdgeInsets.all(8),
-                  ),
+                // Validate quantity before adding to cart
+                final (validatedQuantity, warning) = QuantityValidator.validateQuantity(
+                  productId: widget.product.id,
+                  requestedQuantity: _quantity,
+                  cartProvider: cart,
+                  context: context,
                 );
+                
+                if (warning != null) {
+                  _showSnackBar(
+                    warning,
+                    backgroundColor: AppColors.warning,
+                  );
+                  if (validatedQuantity <= 0) return;
+                }
+                
+                cart.addItem(widget.product, quantity: validatedQuantity);
+                _showSnackBar('Added $validatedQuantity item(s) to cart');
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Failed to add item to cart'),
-                    backgroundColor: Colors.red,
-                  ),
+                _showSnackBar(
+                  'Failed to add item to cart',
+                  backgroundColor: AppColors.failed,
                 );
               }
             },
@@ -377,7 +400,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      widget.product.brand,
+                      widget.product.brand.name,  // Changed from product.brand to product.brand.name
                       style: TextStyle(
                         color: Colors.grey[600],
                         fontSize: 16,
@@ -418,7 +441,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         textBaseline: TextBaseline.alphabetic,
                         children: [
                           Text(
-                            _formatPrice(widget.product.discountPrice!),
+                            AppFormatters.formatPrice(widget.product.discountPrice!),
                             style: const TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.bold,
@@ -437,7 +460,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                       const SizedBox(width: 16),
                       Text(
-                        _formatPrice(widget.product.price),
+                        AppFormatters.formatPrice(widget.product.price),
                         style: const TextStyle(
                           fontSize: 18,
                           decoration: TextDecoration.lineThrough,
@@ -468,7 +491,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         textBaseline: TextBaseline.alphabetic,
                         children: [
                           Text(
-                            _formatPrice(widget.product.price),
+                            AppFormatters.formatPrice(widget.product.price),
                             style: const TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.bold,

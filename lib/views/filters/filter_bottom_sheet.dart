@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/product_provider.dart';
+import '../../providers/category_provider.dart';
+import '../../providers/brand_provider.dart';
+import '../../providers/filter_provider.dart';
 import '../../core/colors.dart';
 
 class FilterBottomSheet extends StatefulWidget {
@@ -12,26 +14,29 @@ class FilterBottomSheet extends StatefulWidget {
 
 class _FilterBottomSheetState extends State<FilterBottomSheet> {
   String? selectedCategory;
-  String? selectedBrand;
+  String? selectedBrandId;
   String selectedSort = 'none';
 
   @override
   void initState() {
     super.initState();
-    final provider = Provider.of<ProductProvider>(context, listen: false);
-    selectedCategory = provider.selectedCategoryId;
-    selectedBrand = provider.selectedBrand;
-    selectedSort = provider.sortBy;
+    final filterProvider = Provider.of<FilterProvider>(context, listen: false);
+    selectedCategory = filterProvider.selectedCategoryId;
+    selectedBrandId = filterProvider.selectedBrandId;
+    selectedSort = filterProvider.sortBy;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ProductProvider>(
-      builder: (context, provider, child) {
-        // Filter out brands with 0 products for the current category
-        final availableBrands = provider.availableBrands.where(
-          (brand) => provider.getBrandCount(brand, selectedCategory) > 0
-        ).toList();
+    return Consumer<FilterProvider>(
+      builder: (context, filterProvider, child) {
+        final availableBrands = filterProvider.getAvailableBrandsForCategory();
+        
+        // Reset brand selection if current brand is not available for selected category
+        if (selectedBrandId != null && 
+            !availableBrands.any((b) => b.id == selectedBrandId)) {
+          selectedBrandId = null;
+        }
 
         return Container(
           padding: const EdgeInsets.all(16),
@@ -63,7 +68,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                   ),
                   TextButton(
                     onPressed: () {
-                      provider.clearFilters();
+                      filterProvider.clearAllFilters();
                       Navigator.pop(context);
                     },
                     style: TextButton.styleFrom(
@@ -77,108 +82,144 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                 ],
               ),
               Divider(color: AppColors.primary.withOpacity(0.2)),
-              _buildSection(
-                'Category',
-                Theme(
-                  data: Theme.of(context).copyWith(
-                    canvasColor: AppColors.bgWhite,
-                  ),
-                  child: DropdownButton<String>(
-                    value: selectedCategory,
-                    isExpanded: true,
-                    hint: Text('Select Category', 
-                      style: TextStyle(color: AppColors.textSecondary.withOpacity(0.7))
-                    ),
-                    icon: Icon(Icons.arrow_drop_down, color: AppColors.primary),
-                    underline: Container(
-                      height: 2,
-                      color: AppColors.primary.withOpacity(0.3),
-                    ),
-                    items: [
-                      DropdownMenuItem(
-                        value: null,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('All Categories'),
-                            Text(
-                              '(${provider.getCategoryCount(null)})',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
+              Consumer<CategoryProvider>(
+                builder: (context, categoryProvider, _) {
+                  return _buildSection(
+                    'Category',
+                    Theme(
+                      data: Theme.of(context).copyWith(
+                        canvasColor: AppColors.bgWhite,
                       ),
-                      ...provider.categories.map((category) {
-                        return DropdownMenuItem(
-                          value: category.id,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(category.name),
-                              Text(
-                                '(${provider.getCategoryCount(category.id)})',
-                                style: TextStyle(color: Colors.grey[600]),
-                              ),
-                            ],
+                      child: DropdownButton<String>(
+                        value: selectedCategory,
+                        isExpanded: true,
+                        hint: Text('Select Category', 
+                          style: TextStyle(color: AppColors.textSecondary.withOpacity(0.7))
+                        ),
+                        icon: Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                        underline: Container(
+                          height: 2,
+                          color: AppColors.primary.withOpacity(0.3),
+                        ),
+                        items: [
+                          DropdownMenuItem(
+                            value: null,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('All Categories'),
+                                Text(
+                                  '(${filterProvider.getCategoryItemCount(null)})',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary.withOpacity(0.7),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        );
-                      }),
-                    ],
-                    onChanged: (value) => setState(() {
-                      selectedCategory = value;
-                      selectedBrand = null;
-                    }),
-                  ),
-                ),
+                          ...categoryProvider.categories
+                            .where((category) => filterProvider.getCategoryItemCount(category.id) > 0) // Only show categories with products
+                            .map((category) {
+                            final count = filterProvider.getCategoryItemCount(category.id);
+                            return DropdownMenuItem(
+                              value: category.id,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      category.name,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '($count)',
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary.withOpacity(0.7),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                        onChanged: (value) => setState(() {
+                          selectedCategory = value;
+                          selectedBrandId = null; // Reset brand when category changes
+                        }),
+                      ),
+                    ),
+                  );
+                },
               ),
-              _buildSection(
-                'Brand',
-                Theme(
-                  data: Theme.of(context).copyWith(
-                    canvasColor: AppColors.bgWhite,
-                  ),
-                  child: DropdownButton<String>(
-                    value: selectedBrand,
-                    isExpanded: true,
-                    hint: Text('Select Brand', style: TextStyle(color: AppColors.textSecondary.withOpacity(0.7))),
-                    icon: Icon(Icons.arrow_drop_down, color: AppColors.primary),
-                    underline: Container(
-                      height: 2,
-                      color: AppColors.primary.withOpacity(0.3),
-                    ),
-                    items: [
-                      DropdownMenuItem(
-                        value: null,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('All Brands'),
-                            Text(
-                              '(${provider.getBrandCount(null, selectedCategory)})',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
+              Consumer<BrandProvider>(
+                builder: (context, brandProvider, _) {
+                  return _buildSection(
+                    'Brand',
+                    Theme(
+                      data: Theme.of(context).copyWith(
+                        canvasColor: AppColors.bgWhite,
                       ),
-                      ...availableBrands.map((brand) {
-                        return DropdownMenuItem(
-                          value: brand,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(brand),
-                              Text(
-                                '(${provider.getBrandCount(brand, selectedCategory)})',
-                                style: TextStyle(color: Colors.grey[600]),
-                              ),
-                            ],
+                      child: DropdownButton<String>(
+                        value: selectedBrandId,
+                        isExpanded: true,
+                        hint: Text('Select Brand', 
+                          style: TextStyle(color: AppColors.textSecondary.withOpacity(0.7))
+                        ),
+                        icon: Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                        underline: Container(
+                          height: 2,
+                          color: AppColors.primary.withOpacity(0.3),
+                        ),
+                        items: [
+                          DropdownMenuItem(
+                            value: null,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('All Brands'),
+                                Text(
+                                  '(${filterProvider.getBrandItemCount(null, selectedCategory)})',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary.withOpacity(0.7),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        );
-                      }),
-                    ],
-                    onChanged: (value) => setState(() => selectedBrand = value),
-                  ),
-                ),
+                          ...availableBrands
+                            .where((brand) => filterProvider.getBrandItemCount(brand.id, selectedCategory) > 0) // Only show brands with products
+                            .map((brand) {
+                            final count = filterProvider.getBrandItemCount(brand.id, selectedCategory);
+                            return DropdownMenuItem(
+                              value: brand.id,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      brand.name,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '($count)',
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary.withOpacity(0.7),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                        onChanged: (value) => setState(() => selectedBrandId = value),
+                      ),
+                    ),
+                  );
+                },
               ),
               _buildSection(
                 'Sort By',
@@ -221,11 +262,11 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                     ),
                   ),
                   onPressed: () {
-                    provider.setFilters(
+                    filterProvider.applyFilters(
                       categoryId: selectedCategory,
-                      brand: selectedBrand,
+                      brandId: selectedBrandId,
+                      sortBy: selectedSort,
                     );
-                    provider.setSortBy(selectedSort);
                     Navigator.pop(context);
                   },
                   child: const Text(

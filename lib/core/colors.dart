@@ -19,8 +19,12 @@ class AppColors {
   static const Color textSecondary = Colors.black; 
   static const Color hypertext = Colors.blue; 
 
+  // Status Colors
+  static const Color warning = Color(0xFFFFA726); // Orange
+  static const Color failed = Color(0xFFD32F2F); // Red
+
   // Error Color
-  static const Color error = Color(0xFFD32F2F); // Red
+  static const Color error = failed; // Use failed color for consistency
 
   // Buttons Colors
   static const Color notActiveBtn = Color(0xFF757575);

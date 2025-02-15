@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../../core/colors.dart';
 import '../../providers/cart_provider.dart';
 import '../../utils/image_validator.dart';
+import '../../utils/formatters.dart';  // Add this import
+import '../../utils/quantity_validator.dart';  // Add this import
 
 class BuildItemCard extends StatelessWidget {
   const BuildItemCard({
@@ -16,15 +18,6 @@ class BuildItemCard extends StatelessWidget {
 
   bool get _hasValidPrice => product.price > 0 || 
       (product.discountPrice != null && product.discountPrice! > 0);
-
-  String _formatQuantity(double quantity, bool isKilo) {
-    if (isKilo) {
-      String formatted = quantity.toStringAsFixed(2).replaceAll(RegExp(r'\.?0*$'), '');
-      return '$formatted kg';
-    } else {
-      return quantity.toInt().toString();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +58,7 @@ class BuildItemCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            product.brand,
+                            product.brand.name,  // Changed from product.brand to product.brand.name
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[600],
@@ -116,19 +109,40 @@ class BuildItemCard extends StatelessWidget {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(8),
                       onTap: _hasValidPrice ? () {
-                        cart.addItem(product);
-                        
-                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              isInCart ? 'Increased quantity in cart' : 'Added to cart'
-                            ),
-                            duration: const Duration(milliseconds: 500),
-                            behavior: SnackBarBehavior.floating,
-                            margin: const EdgeInsets.all(8),
-                          ),
+                        final (adjustedQuantity, warning) = QuantityValidator.validateQuantity(
+                          productId: product.id,
+                          requestedQuantity: 1.0,
+                          cartProvider: cart,
+                          context: context,
                         );
+
+                        if (adjustedQuantity > 0) {
+                          cart.addItem(product);
+                          
+                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                warning ?? (isInCart ? 'Increased quantity in cart' : 'Added to cart')
+                              ),
+                              duration: const Duration(milliseconds: 500),
+                              behavior: SnackBarBehavior.floating,
+                              margin: const EdgeInsets.all(8),
+                              backgroundColor: warning != null ? AppColors.warning : AppColors.primary,
+                            ),
+                          );
+                        } else if (warning != null) {
+                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(warning),
+                              duration: const Duration(milliseconds: 1000),
+                              behavior: SnackBarBehavior.floating,
+                              margin: const EdgeInsets.all(8),
+                              backgroundColor: AppColors.warning,
+                            ),
+                          );
+                        }
                       } : null,
                       child: Padding(
                         padding: const EdgeInsets.all(6),
@@ -145,7 +159,7 @@ class BuildItemCard extends StatelessWidget {
                             if (isInCart && _hasValidPrice) ...[
                               const SizedBox(width: 4),
                               Text(
-                                _formatQuantity(
+                                AppFormatters.formatQuantity(
                                   quantity,
                                   product.unit == ProductUnit.kilo
                                 ),
@@ -187,7 +201,7 @@ class BuildItemCard extends StatelessWidget {
       children: [
         if (product.discountPrice != null && product.discountPrice! > 0) ...[
           Text(
-            '\$${product.discountPrice}',
+            AppFormatters.formatPrice(product.discountPrice!),
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -195,7 +209,7 @@ class BuildItemCard extends StatelessWidget {
             ),
           ),
           Text(
-            '\$${product.price}',
+            AppFormatters.formatPrice(product.price),
             style: TextStyle(
               fontSize: 13,
               decoration: TextDecoration.lineThrough,
@@ -204,7 +218,7 @@ class BuildItemCard extends StatelessWidget {
           ),
         ] else
           Text(
-            '\$${product.price}',
+            AppFormatters.formatPrice(product.price),
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,

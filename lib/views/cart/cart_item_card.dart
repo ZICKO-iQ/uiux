@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../core/colors.dart';
 import '../../models/cart_item.dart';
-import '../../models/product.dart';  // Add this import for ProductUnit
-import '../../utils/image_validator.dart';  // Update from image_validation.dart
+import '../../models/product.dart';
+import '../../utils/image_validator.dart';
+import '../../utils/formatters.dart';
 
-class CartItemCard extends StatefulWidget {  // Change to StatefulWidget
+class CartItemCard extends StatefulWidget {
   final CartItem item;
-  final Function(double) onQuantityChanged;  // Changed to double
+  final Function(double) onQuantityChanged;
   final VoidCallback onDelete;
 
   const CartItemCard({
@@ -22,34 +22,11 @@ class CartItemCard extends StatefulWidget {  // Change to StatefulWidget
 }
 
 class _CartItemCardState extends State<CartItemCard> {
-  static final NumberFormat _currencyFormatter = NumberFormat.currency(
-    symbol: '\$',
-    decimalDigits: 0,  // Changed to 0 to remove decimal points
-  );
-
-  String _formatPrice(num price) {  // Changed parameter type to num
-    return _currencyFormatter.format(price);
-  }
-
-  String _formatPriceWithUnit(num price, ProductUnit unit) {
-    String formattedPrice = _currencyFormatter.format(price);
-    return unit == ProductUnit.kilo ? '$formattedPrice/kg' : '$formattedPrice/piece';
-  }
-
-  String _formatQuantity(double quantity, bool isKilo) {
-    if (isKilo) {
-      // Only show the number with necessary decimals, without 'kg'
-      return quantity.toStringAsFixed(2).replaceAll(RegExp(r'\.?0*$'), '');
-    } else {
-      return quantity.toInt().toString();
-    }
-  }
-
   Widget _buildQuantityControls() {
     final bool isKilo = widget.item.unit == ProductUnit.kilo;
-    final double step = isKilo ? 0.25 : 1.0;
-    final double minQuantity = isKilo ? 0.25 : 1.0;
-    final double maxQuantity = 100.0;
+    final double step = AppFormatters.getQuantityStep(widget.item.unit);
+    final double minQuantity = AppFormatters.getMinQuantity(widget.item.unit);
+    final double maxQuantity = AppFormatters.maxQuantity;
 
     return Container(
       decoration: BoxDecoration(
@@ -81,9 +58,10 @@ class _CartItemCardState extends State<CartItemCard> {
           ),
           GestureDetector(
             onTap: () {
+              // Remove the initial text value from controller
               final TextEditingController controller = TextEditingController();
               showDialog(
-                context: context,  // Now we can use context directly
+                context: context,
                 barrierDismissible: false,
                 builder: (context) => AlertDialog(
                   backgroundColor: AppColors.bgWhite,
@@ -136,7 +114,8 @@ class _CartItemCardState extends State<CartItemCard> {
                             ),
                           ),
                         ),
-                        hintText: isKilo ? '0.25' : '1',
+                        // Show current quantity as placeholder
+                        hintText: AppFormatters.formatQuantity(widget.item.quantity, isKilo),
                         hintStyle: TextStyle(
                           color: AppColors.primary.withOpacity(0.5),
                         ),
@@ -165,12 +144,10 @@ class _CartItemCardState extends State<CartItemCard> {
                           String value = controller.text.trim();
                           if (value.isNotEmpty) {
                             double newValue = double.parse(value.replaceAll(RegExp(r'[^0-9.]'), ''));
-                            // Cap the value at maxQuantity
                             if (newValue > maxQuantity) {
                               newValue = maxQuantity;
                             }
                             if (newValue >= minQuantity) {
-                              // Round to nearest step for kilo products
                               if (isKilo) {
                                 newValue = (newValue / step).round() * step;
                               }
@@ -178,7 +155,6 @@ class _CartItemCardState extends State<CartItemCard> {
                             }
                           }
                         } catch (e) {
-                          // Invalid input, ignore
                         }
                         Navigator.pop(context);
                       },
@@ -199,10 +175,10 @@ class _CartItemCardState extends State<CartItemCard> {
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8),
-              width: 60, // Increased from 60 to 72 to accommodate longer numbers
+              width: 60,
               alignment: Alignment.center,
               child: Text(
-                _formatQuantity(widget.item.quantity, isKilo),
+                AppFormatters.formatQuantity(widget.item.quantity, isKilo),
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -332,7 +308,10 @@ class _CartItemCardState extends State<CartItemCard> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _formatPriceWithUnit(widget.item.price, widget.item.unit),  // Updated price display
+                    AppFormatters.formatPriceWithUnit(
+                      widget.item.price,
+                      widget.item.unit
+                    ),
                     style: TextStyle(
                       color: Colors.grey[600],
                       fontSize: 14,
@@ -356,7 +335,9 @@ class _CartItemCardState extends State<CartItemCard> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            _formatPrice((widget.item.price * widget.item.quantity).toDouble()),  // Convert to double for proper calculation
+                            AppFormatters.formatPrice(
+                              widget.item.price * widget.item.quantity
+                            ),
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
