@@ -1,4 +1,5 @@
 import 'package:pocketbase/pocketbase.dart';
+import '../config/app_config.dart';
 
 class Brand {
   final String id;
@@ -19,10 +20,15 @@ class Brand {
   }
 
   factory Brand.fromRecord(RecordModel record) {
+    final fileName = record.getStringValue('image');
+    final imageUrl = fileName.isNotEmpty 
+        ? '${AppConfig.baseUrl}/api/files/${record.collectionId}/${record.id}/$fileName'
+        : '';
+
     return Brand(
       id: record.id,
-      name: record.get<String>('name'),
-      image: record.get<String>('image'),  // Add this field
+      name: record.getStringValue('name'),
+      image: imageUrl,
     );
   }
 

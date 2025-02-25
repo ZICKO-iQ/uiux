@@ -14,6 +14,8 @@ class RoutePage extends StatefulWidget {
 }
 
 class _RoutePageState extends State<RoutePage> {
+  DateTime? _lastPressedAt;
+
   // Each tab gets its own Navigator key to preserve its state
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [
     GlobalKey<NavigatorState>(),
@@ -29,10 +31,30 @@ class _RoutePageState extends State<RoutePage> {
     final navigationProvider = Provider.of<NavigationProvider>(context, listen: false);
     final isFirstRouteInCurrentTab =
         !await _navigatorKeys[navigationProvider.selectedIndex].currentState!.maybePop();
+
     if (isFirstRouteInCurrentTab) {
-      return true; // Allow app to exit
+      // If we're not on the home tab (index 0), switch to it
+      if (navigationProvider.selectedIndex != 0) {
+        navigationProvider.setSelectedIndex(0);
+        return false; // Prevent app from exiting
+      } else {
+        // If we're on home page, handle double press
+        if (_lastPressedAt == null || 
+            DateTime.now().difference(_lastPressedAt!) > Duration(seconds: 2)) {
+          _lastPressedAt = DateTime.now();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Press back again to exit'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+          return false;
+        }
+        return true;
+      }
     }
-    return false; // Prevent app from exiting
+    
+    return false; // Prevent app from exiting if we can pop the current route
   }
 
   // Handle bottom navigation bar taps

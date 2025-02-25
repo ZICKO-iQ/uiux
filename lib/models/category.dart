@@ -1,4 +1,5 @@
 import 'package:pocketbase/pocketbase.dart';
+import '../config/app_config.dart';
 
 class Category {
   final String id;
@@ -20,10 +21,15 @@ class Category {
   }
 
   factory Category.fromRecord(RecordModel record) {
+    final fileName = record.getStringValue('image');
+    final imageUrl = fileName.isNotEmpty 
+        ? '${AppConfig.baseUrl}/api/files/${record.collectionId}/${record.id}/$fileName'
+        : '';
+        
     return Category(
       id: record.id,
-      name: record.get<String>('name'),
-      image: record.get<String>('image'),
+      name: record.getStringValue('name'),
+      image: imageUrl,
     );
   }
 }

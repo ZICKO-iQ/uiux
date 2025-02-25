@@ -16,7 +16,7 @@ class ImageValidator {
       
       // Accept our PocketBase URLs without validation using AppConfig
       if (AppConfig.isValidHost(uri.host)) {
-        if (uri.port == AppConfig.PB_PORT && uri.path.contains('/api/files/')) {
+        if (uri.port == AppConfig.PB_PORT && uri.path.startsWith('/api/files/')) {
           return true;
         }
       }

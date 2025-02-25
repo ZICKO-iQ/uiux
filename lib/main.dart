@@ -7,8 +7,11 @@ import 'providers/cart_provider.dart';
 import 'providers/category_provider.dart';
 import 'providers/brand_provider.dart';
 import 'providers/filter_provider.dart';
+import 'providers/search_provider.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  
   runApp(
     MultiProvider(
       providers: [
@@ -18,13 +21,16 @@ void main() {
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
         ChangeNotifierProvider(create: (_) => BrandProvider()),
         ChangeNotifierProvider(create: (_) => FilterProvider()),
+        ChangeNotifierProvider(create: (_) => SearchProvider()),
       ],
-      child: MyApp(),
+      child: const MyApp(),
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(

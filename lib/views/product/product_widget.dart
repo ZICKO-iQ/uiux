@@ -21,6 +21,16 @@ class BuildItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final imageHeight = isLandscape 
+        ? (screenWidth / 3) * 0.5  // Changed from 4 to 3 columns, and 0.6 to 0.5
+        : (screenWidth / 2) * 0.6;
+
+    // Calculate font sizes based on orientation
+    final brandFontSize = isLandscape ? screenWidth * 0.02 : screenWidth * 0.028;
+    final nameFontSize = isLandscape ? screenWidth * 0.022 : screenWidth * 0.032;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       decoration: BoxDecoration(
@@ -50,31 +60,45 @@ class BuildItemCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildImageSection(),
+                  SizedBox(
+                    height: imageHeight,
+                    child: _buildImageSection(),
+                  ),
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(8), // Reduced padding
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween, // Change this
                         children: [
-                          Text(
-                            product.brand.name,  // Changed from product.brand to product.brand.name
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
+                          Flexible(  // Add Flexible here
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  product.brand.name,
+                                  style: TextStyle(
+                                    fontSize: brandFontSize,  // Use new font size
+                                    color: Colors.grey[600],
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  product.viewName,
+                                  style: TextStyle(
+                                    fontSize: nameFontSize,  // Use new font size
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            product.viewName,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const Spacer(),
+                          const SizedBox(height: 4),  // Add spacing
                           _buildPriceSection(),
                         ],
                       ),
@@ -184,45 +208,60 @@ class BuildItemCard extends StatelessWidget {
   }
 
   Widget _buildPriceSection() {
-    // Don't show price section if price is 0
-    if (product.price == 0) {
+    if (!_hasValidPrice) {
       return const Text(
         'Price not available',
         style: TextStyle(
-          fontSize: 14,
+          fontSize: 12,
           color: Colors.grey,
           fontStyle: FontStyle.italic,
         ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       );
     }
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisSize: MainAxisSize.min,  // Add this
       children: [
         if (product.discountPrice != null && product.discountPrice! > 0) ...[
-          Text(
-            AppFormatters.formatPrice(product.discountPrice!),
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: AppColors.primary,
+          Flexible(
+            child: Text(
+              AppFormatters.formatPrice(product.discountPrice!),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          Text(
-            AppFormatters.formatPrice(product.price),
-            style: TextStyle(
-              fontSize: 13,
-              decoration: TextDecoration.lineThrough,
-              color: Colors.grey[400],
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              AppFormatters.formatPrice(product.price),
+              style: TextStyle(
+                fontSize: 12,
+                decoration: TextDecoration.lineThrough,
+                color: Colors.grey[400],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ] else
-          Text(
-            AppFormatters.formatPrice(product.price),
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: AppColors.primary,
+          Flexible(
+            child: Text(
+              AppFormatters.formatPrice(product.price),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
       ],
@@ -231,9 +270,8 @@ class BuildItemCard extends StatelessWidget {
 
   Widget _buildImageSection() {
     return Container(
-      height: 130,
-      decoration: BoxDecoration(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      decoration: const BoxDecoration(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
@@ -241,11 +279,11 @@ class BuildItemCard extends StatelessWidget {
           child: product.images.isNotEmpty
               ? ValidatedNetworkImage(
                   imageUrl: product.images.first,
-                  fit: BoxFit.contain,
+                  fit: BoxFit.cover,
                 )
               : Image.asset(
                   'assets/images/placeholder.png',
-                  fit: BoxFit.contain,
+                  fit: BoxFit.cover,
                 ),
         ),
       ),

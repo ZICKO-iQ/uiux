@@ -147,9 +147,12 @@ class HomePage extends StatelessWidget {
                       child: GridView.builder(
                         padding: const EdgeInsets.all(8),
                         physics: const AlwaysScrollableScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          childAspectRatio: 0.75,
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: MediaQuery.of(context).orientation == Orientation.landscape ? 3 : 2, // Changed from 4 to 3
+                          childAspectRatio: MediaQuery.of(context).orientation == Orientation.landscape
+                              ? 1.05  // Changed from 1.0 to 0.85 for better proportion
+                              : MediaQuery.of(context).size.width /
+                                (MediaQuery.of(context).size.height * 0.5),
                           crossAxisSpacing: 8,
                           mainAxisSpacing: 8,
                         ),

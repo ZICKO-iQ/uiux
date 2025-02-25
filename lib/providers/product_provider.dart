@@ -5,12 +5,15 @@ import '../models/product.dart';
 class ProductProvider extends ChangeNotifier {
   final _pbService = PocketbaseService();
   List<Product> _products = [];
+  List<Product> _filteredProducts = []; // Add this for filtered view
   bool _isLoading = false;
   String? _error;
   bool _isInitialized = false;
   String _sortBy = 'none';
 
+  // Getters
   List<Product> get products => _products;
+  List<Product> get filteredProducts => _filteredProducts; // Add this getter
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get isInitialized => _isInitialized;
@@ -65,7 +68,45 @@ class ProductProvider extends ChangeNotifier {
 
   Future<void> loadProducts() async {
     if (_isInitialized) return;
+    await _loadProductsWithFilter();
+    _isInitialized = true;
     
+    // Subscribe to realtime updates
+    final pb = await _pbService.pb;
+    pb.collection('products').subscribe('*', (e) async {
+      try {
+        switch (e.action) {
+          case 'create':
+            final newProduct = await Product.fromRecord(e.record!);
+            _products.add(newProduct);
+            break;
+          case 'update':
+            final index = _products.indexWhere((p) => p.id == e.record!.id);
+            if (index != -1) {
+              final updatedProduct = await Product.fromRecord(e.record!);
+              _products[index] = updatedProduct;
+            }
+            break;
+          case 'delete':
+            _products.removeWhere((p) => p.id == e.record!.id);
+            break;
+        }
+        notifyListeners();
+      } catch (e) {
+        print('Error processing realtime update: $e');
+      }
+    });
+  }
+
+  Future<void> loadProductsByCategory(String categoryId) async {
+    await _loadProductsWithFilter(filter: 'category_id = "$categoryId"', isFiltered: true);
+  }
+
+  Future<void> loadProductsByBrand(String brandId) async {
+    await _loadProductsWithFilter(filter: 'brand_id = "$brandId"', isFiltered: true);
+  }
+
+  Future<void> _loadProductsWithFilter({String? filter, bool isFiltered = false}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -73,45 +114,38 @@ class ProductProvider extends ChangeNotifier {
     try {
       final pb = await _pbService.pb;
       final response = await pb.collection('products').getFullList(
+        filter: filter,
         expand: 'category_id,brand_id'
       );
-      _products = await Future.wait(
+      
+      final loadedProducts = await Future.wait(
         response.map((record) => Product.fromRecord(record))
       );
-      _isInitialized = true;
+
+      if (isFiltered) {
+        _filteredProducts = loadedProducts;
+      } else {
+        _products = loadedProducts;
+      }
       _error = null;
-      
-      // Subscribe to realtime updates
-      pb.collection('products').subscribe('*', (e) async {
-        try {
-          switch (e.action) {
-            case 'create':
-              final newProduct = await Product.fromRecord(e.record!);
-              _products.add(newProduct);
-              break;
-            case 'update':
-              final index = _products.indexWhere((p) => p.id == e.record!.id);
-              if (index != -1) {
-                final updatedProduct = await Product.fromRecord(e.record!);
-                _products[index] = updatedProduct;
-              }
-              break;
-            case 'delete':
-              _products.removeWhere((p) => p.id == e.record!.id);
-              break;
-          }
-          notifyListeners();
-        } catch (e) {
-          print('Error processing realtime update: $e');
-        }
-      });
     } catch (e) {
       _error = "Error loading products: ${e.toString()}";
-      _isInitialized = false;
+      if (isFiltered) {
+        _filteredProducts = [];
+      } else {
+        _products = [];
+        _isInitialized = false;
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  void clearFilteredProducts() {
+    _filteredProducts = [];
+    _error = null;
+    notifyListeners();
   }
 
   Future<void> refreshProducts() async {

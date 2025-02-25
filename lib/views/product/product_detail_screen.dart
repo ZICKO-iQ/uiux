@@ -4,10 +4,10 @@ import 'package:carousel_slider/carousel_slider.dart';
 import '../../core/colors.dart';
 import '../../models/product.dart';
 import '../../providers/cart_provider.dart';
-import '../../utils/formatters.dart';  // Add this import
+import '../../utils/formatters.dart'; // Add this import
 import '../shared/app_bar.dart';
 import '../../utils/image_validator.dart';
-import '../../utils/quantity_validator.dart';  // Add this import
+import '../../utils/quantity_validator.dart'; // Add this import
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
@@ -22,7 +22,7 @@ class ProductDetailScreen extends StatefulWidget {
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
-  double _quantity = 1.0;  // Initialize with a default value
+  double _quantity = 1.0; // Initialize with a default value
   int _selectedImageIndex = 0;
   late TextEditingController _quantityController;
 
@@ -32,11 +32,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     // Initialize quantity based on product unit
     _quantity = AppFormatters.getMinQuantity(widget.product.unit);
     _quantityController = TextEditingController(
-      text: AppFormatters.formatQuantity(
-        _quantity,
-        widget.product.unit == ProductUnit.kilo
-      )
-    );
+        text: AppFormatters.formatQuantity(
+            _quantity, widget.product.unit == ProductUnit.kilo));
   }
 
   @override
@@ -47,8 +44,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   void _updateQuantity(double newValue) {
     final bool isKilo = widget.product.unit == ProductUnit.kilo;
-    final double minQuantity = AppFormatters.getMinQuantity(widget.product.unit);
-    
+    final double minQuantity =
+        AppFormatters.getMinQuantity(widget.product.unit);
+
     if (newValue >= minQuantity) {
       final cartProvider = Provider.of<CartProvider>(context, listen: false);
       final (validatedQuantity, warning) = QuantityValidator.validateQuantity(
@@ -57,18 +55,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         cartProvider: cartProvider,
         context: context,
       );
-      
+
       if (warning != null) {
         _showSnackBar(
           warning,
           backgroundColor: AppColors.warning,
         );
       }
-      
-      final double roundedValue = AppFormatters.roundQuantity(validatedQuantity, widget.product.unit);
+
+      final double roundedValue =
+          AppFormatters.roundQuantity(validatedQuantity, widget.product.unit);
       setState(() {
         _quantity = roundedValue;
-        _quantityController.text = AppFormatters.formatQuantity(roundedValue, isKilo);
+        _quantityController.text =
+            AppFormatters.formatQuantity(roundedValue, isKilo);
       });
     }
   }
@@ -167,16 +167,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  borderRadius: const BorderRadius.horizontal(left: Radius.circular(11)),
-                  onTap: _quantity <= minQuantity 
-                      ? null 
+                  borderRadius:
+                      const BorderRadius.horizontal(left: Radius.circular(11)),
+                  onTap: _quantity <= minQuantity
+                      ? null
                       : () => _updateQuantity(_quantity - step),
                   child: Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Icon(
                       Icons.remove,
-                      color: _quantity <= minQuantity 
-                          ? AppColors.notActiveBtn 
+                      color: _quantity <= minQuantity
+                          ? AppColors.notActiveBtn
                           : AppColors.primary,
                     ),
                   ),
@@ -217,8 +218,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: TextField(
                           controller: _quantityController,
-                          keyboardType: isKilo 
-                              ? const TextInputType.numberWithOptions(decimal: true)
+                          keyboardType: isKilo
+                              ? const TextInputType.numberWithOptions(
+                                  decimal: true)
                               : TextInputType.number,
                           decoration: InputDecoration(
                             border: InputBorder.none,
@@ -239,7 +241,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       actions: [
                         TextButton.icon(
                           onPressed: () {
-                            _quantityController.text = AppFormatters.formatQuantity(_quantity, isKilo);
+                            _quantityController.text =
+                                AppFormatters.formatQuantity(_quantity, isKilo);
                             Navigator.pop(context);
                           },
                           icon: const Icon(Icons.close),
@@ -253,32 +256,42 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             try {
                               String value = _quantityController.text.trim();
                               if (value.isEmpty) {
-                                _quantityController.text = AppFormatters.formatQuantity(_quantity, isKilo);
+                                _quantityController.text =
+                                    AppFormatters.formatQuantity(
+                                        _quantity, isKilo);
                               } else {
-                                double newValue = double.parse(value.replaceAll(RegExp(r'[^0-9.]'), ''));
+                                double newValue = double.parse(
+                                    value.replaceAll(RegExp(r'[^0-9.]'), ''));
                                 if (newValue >= minQuantity) {
-                                  final cartProvider = Provider.of<CartProvider>(context, listen: false);
-                                  final (validatedQuantity, warning) = QuantityValidator.validateQuantity(
+                                  final cartProvider =
+                                      Provider.of<CartProvider>(context,
+                                          listen: false);
+                                  final (validatedQuantity, warning) =
+                                      QuantityValidator.validateQuantity(
                                     productId: widget.product.id,
                                     requestedQuantity: newValue,
                                     cartProvider: cartProvider,
                                     context: context,
                                   );
-                                  
+
                                   if (warning != null) {
                                     _showSnackBar(
                                       warning,
                                       backgroundColor: AppColors.warning,
                                     );
                                   }
-                                  
+
                                   _updateQuantity(validatedQuantity);
                                 } else {
-                                  _quantityController.text = AppFormatters.formatQuantity(_quantity, isKilo);
+                                  _quantityController.text =
+                                      AppFormatters.formatQuantity(
+                                          _quantity, isKilo);
                                 }
                               }
                             } catch (e) {
-                              _quantityController.text = AppFormatters.formatQuantity(_quantity, isKilo);
+                              _quantityController.text =
+                                  AppFormatters.formatQuantity(
+                                      _quantity, isKilo);
                             }
                             Navigator.pop(context);
                           },
@@ -298,7 +311,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   );
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   width: 80, // Add fixed width
                   alignment: Alignment.center, // Center the text
                   child: Text(
@@ -314,7 +328,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  borderRadius: const BorderRadius.horizontal(right: Radius.circular(11)),
+                  borderRadius:
+                      const BorderRadius.horizontal(right: Radius.circular(11)),
                   onTap: () => _updateQuantity(_quantity + step),
                   child: const Padding(
                     padding: EdgeInsets.all(8.0),
@@ -334,10 +349,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bool hasDiscount = widget.product.discountPrice != null && 
-                           widget.product.discountPrice! > 0 && 
-                           widget.product.discountPrice! < widget.product.price;
-    
+    final bool hasDiscount = widget.product.discountPrice != null &&
+        widget.product.discountPrice! > 0 &&
+        widget.product.discountPrice! < widget.product.price;
+
     return Scaffold(
       backgroundColor: AppColors.bgWhite,
       appBar: CustomAppBar(title: widget.product.viewName),
@@ -347,13 +362,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             onPressed: () {
               try {
                 // Validate quantity before adding to cart
-                final (validatedQuantity, warning) = QuantityValidator.validateQuantity(
+                final (validatedQuantity, warning) =
+                    QuantityValidator.validateQuantity(
                   productId: widget.product.id,
                   requestedQuantity: _quantity,
                   cartProvider: cart,
                   context: context,
                 );
-                
+
                 if (warning != null) {
                   _showSnackBar(
                     warning,
@@ -361,7 +377,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   );
                   if (validatedQuantity <= 0) return;
                 }
-                
+
                 cart.addItem(widget.product, quantity: validatedQuantity);
                 _showSnackBar('Added $validatedQuantity item(s) to cart');
               } catch (e) {
@@ -400,7 +416,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      widget.product.brand.name,  // Changed from product.brand to product.brand.name
+                      widget.product.brand
+                          .name, // Changed from product.brand to product.brand.name
                       style: TextStyle(
                         color: Colors.grey[600],
                         fontSize: 16,
@@ -420,7 +437,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ),
 
                 const SizedBox(height: 8),
-                
+
                 // Product Name
                 Text(
                   widget.product.viewName,
@@ -441,7 +458,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         textBaseline: TextBaseline.alphabetic,
                         children: [
                           Text(
-                            AppFormatters.formatPrice(widget.product.discountPrice!),
+                            AppFormatters.formatPrice(
+                                widget.product.discountPrice!),
                             style: const TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.bold,

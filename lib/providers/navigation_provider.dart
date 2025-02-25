@@ -9,4 +9,14 @@ class NavigationProvider extends ChangeNotifier {
     _selectedIndex = index;
     notifyListeners();
   }
+
+  bool get isOnHomePage => _selectedIndex == 0;
+
+  Future<bool> onWillPop() async {
+    if (!isOnHomePage) {
+      setSelectedIndex(0);
+      return false;
+    }
+    return true;
+  }
 }

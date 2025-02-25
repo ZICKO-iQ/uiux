@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/colors.dart';
+import '../search/search_screen.dart';
+import '../../providers/search_provider.dart';
+import 'package:provider/provider.dart';
 
 class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String title;
@@ -24,6 +27,7 @@ class _CustomAppBarState extends State<CustomAppBar> with SingleTickerProviderSt
   bool _isSearching = false;
   late TextEditingController _searchController;
   late FocusNode _focusNode;
+  OverlayEntry? _overlayEntry;
   
   @override
   void initState() {
@@ -34,6 +38,7 @@ class _CustomAppBarState extends State<CustomAppBar> with SingleTickerProviderSt
   
   @override
   void dispose() {
+    _removeOverlay();
     _searchController.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -46,8 +51,104 @@ class _CustomAppBarState extends State<CustomAppBar> with SingleTickerProviderSt
         _focusNode.requestFocus();
       } else {
         _searchController.clear();
+        _removeOverlay();
       }
     });
+  }
+
+  void _removeOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  void _showSuggestions() {
+    _removeOverlay();
+    
+    final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    
+    final size = renderBox.size;
+    final offset = renderBox.localToGlobal(Offset.zero);
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: offset.dy + size.height,
+        left: offset.dx,
+        width: size.width,
+        child: Material(
+          elevation: 8,
+          borderRadius: BorderRadius.circular(8),
+          child: Consumer<SearchProvider>(
+            builder: (context, searchProvider, _) {
+              if (!_isSearching || _searchController.text.isEmpty) {
+                return const SizedBox.shrink();
+              }
+
+              return Container(
+                constraints: const BoxConstraints(maxHeight: 300),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (searchProvider.suggestions.isNotEmpty)
+                        ...searchProvider.suggestions.map((suggestion) => ListTile(
+                          leading: const Icon(Icons.search),
+                          title: Text(suggestion),
+                          onTap: () {
+                            _searchController.text = suggestion;
+                            _removeOverlay();
+                            _onSearchSubmitted(suggestion);
+                          },
+                        )).toList()
+                      else if (!searchProvider.isLoading)
+                        const ListTile(
+                          title: Text('No suggestions found'),
+                        ),
+                      if (searchProvider.isLoading)
+                        const ListTile(
+                          title: Center(child: CircularProgressIndicator()),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _onSearchSubmitted(String query) {
+    if (query.trim().isNotEmpty) {
+      _removeOverlay();
+      _toggleSearch(); // Close search bar
+      
+      // Clear previous search results
+      Provider.of<SearchProvider>(context, listen: false).clearSearch();
+      
+      // Pop existing search screen if it exists and push new one
+      Navigator.of(context).popUntil((route) {
+        if (route.settings.name == 'search') {
+          return false; // Pop the existing search screen
+        }
+        return true; // Keep other screens
+      });
+      
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          settings: const RouteSettings(name: 'search'),
+          builder: (context) => SearchScreen(searchQuery: query),
+        ),
+      );
+    }
   }
 
   @override
@@ -87,6 +188,15 @@ class _CustomAppBarState extends State<CustomAppBar> with SingleTickerProviderSt
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                 ),
+                onChanged: (value) {
+                  if (value.trim().isNotEmpty) {
+                    context.read<SearchProvider>().getSuggestions(value);
+                    _showSuggestions();
+                  } else {
+                    _removeOverlay();
+                  }
+                },
+                onSubmitted: _onSearchSubmitted,
               )
             : Text(
                 widget.title,

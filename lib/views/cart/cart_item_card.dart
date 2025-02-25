@@ -322,6 +322,7 @@ class _CartItemCardState extends State<CartItemCard> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
+                      /* Comment this block to hide subtotal
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -346,6 +347,7 @@ class _CartItemCardState extends State<CartItemCard> {
                           ),
                         ],
                       ),
+                      */
                       _buildQuantityControls(),
                     ],
                   ),

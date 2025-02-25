@@ -5,6 +5,7 @@ import 'package:uiux/providers/category_provider.dart';
 import 'package:uiux/providers/brand_provider.dart';
 import 'package:uiux/views/category/category_widget.dart';
 import 'package:uiux/views/shared/app_bar.dart';
+import '../category/filtered_product_screen.dart'; // Add this import
 
 class CategoryPage extends StatefulWidget {
   const CategoryPage({super.key});
@@ -64,6 +65,57 @@ class _CategoryPageState extends State<CategoryPage> with SingleTickerProviderSt
     );
   }
 
+  Widget _buildCategoryGrid(List<dynamic> items, bool isCategory) {
+    return GridView.builder(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 1.2,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final sortedItems = items.toList()
+          ..sort((a, b) {
+            if (a.name.toLowerCase() == 'other') return 1;
+            if (b.name.toLowerCase() == 'other') return -1;
+            return a.name.compareTo(b.name);
+          });
+        final item = sortedItems[index];
+        
+        return GestureDetector(
+          onTap: () {
+            if (isCategory) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => FilteredProductScreen(
+                    categoryId: item.id,
+                    title: item.name,
+                  ),
+                ),
+              );
+            } else {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => FilteredProductScreen(
+                    brandId: item.id,
+                    title: item.name,
+                  ),
+                ),
+              );
+            }
+          },
+          child: ItemCard(
+            name: item.name,
+            image: item.image,
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -110,22 +162,7 @@ class _CategoryPageState extends State<CategoryPage> with SingleTickerProviderSt
                       onRefresh: categoryProvider.refreshCategories,
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),
-                        child: GridView.builder(
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                            childAspectRatio: 1.2,
-                          ),
-                          itemCount: categories.length,
-                          itemBuilder: (context, index) {
-                            final category = categories[index];
-                            return CategoryCard(
-                              name: category.name,
-                              image: category.image,  // Changed from icon to image
-                            );
-                          },
-                        ),
+                        child: _buildCategoryGrid(categories, true),
                       ),
                     );
                   },
@@ -152,22 +189,7 @@ class _CategoryPageState extends State<CategoryPage> with SingleTickerProviderSt
                       onRefresh: brandProvider.refreshBrands,
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),
-                        child: GridView.builder(
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                            childAspectRatio: 1.2,
-                          ),
-                          itemCount: brands.length,
-                          itemBuilder: (context, index) {
-                            final brand = brands[index];
-                            return BrandCard(
-                              name: brand.name,
-                              imagePath: brand.image,  // Make sure Brand model has image field
-                            );
-                          },
-                        ),
+                        child: _buildCategoryGrid(brands, false),
                       ),
                     );
                   },
