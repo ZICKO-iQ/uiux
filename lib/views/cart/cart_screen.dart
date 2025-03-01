@@ -44,7 +44,8 @@ class CartPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppBar(title: 'Shopping Cart'),
+      appBar: CustomAppBar(title: 'Shopping Cart',
+        onSearchTap: () {},),
       backgroundColor: Colors.grey[100],
       body: Consumer<CartProvider>(
         builder: (context, cart, child) {

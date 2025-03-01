@@ -48,19 +48,55 @@ class _CategoryPageState extends State<CategoryPage> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildErrorView(String message) {
+  Widget _buildErrorView(String message, VoidCallback onRetry) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            style: const TextStyle(color: Colors.red),
-            textAlign: TextAlign.center,
-          ),
-        ],
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.cloud_off_rounded,
+              size: 64,
+              color: Colors.grey,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Connection Error',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[800],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Failed to connect to server',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh, color: AppColors.bgWhite,),
+              label: const Text('Try Again'),
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -119,7 +155,8 @@ class _CategoryPageState extends State<CategoryPage> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppBar(title: 'Categories & Brands'),
+      appBar: CustomAppBar(title: 'Categories & Brands',
+        onSearchTap: () {},),
       backgroundColor: AppColors.bgWhite,
       body: Column(
         children: [
@@ -148,7 +185,10 @@ class _CategoryPageState extends State<CategoryPage> with SingleTickerProviderSt
                     }
 
                     if (categoryProvider.error != null) {
-                      return _buildErrorView(categoryProvider.error!);
+                      return _buildErrorView(
+                        categoryProvider.error!,
+                        () => categoryProvider.refreshCategories(),
+                      );
                     }
 
                     final categories = categoryProvider.categories;
@@ -175,7 +215,10 @@ class _CategoryPageState extends State<CategoryPage> with SingleTickerProviderSt
                     }
 
                     if (brandProvider.error != null) {
-                      return _buildErrorView(brandProvider.error!);
+                      return _buildErrorView(
+                        brandProvider.error!,
+                        () => brandProvider.refreshBrands(),
+                      );
                     }
 
                     final brands = brandProvider.brands;

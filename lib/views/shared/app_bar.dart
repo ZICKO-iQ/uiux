@@ -7,13 +7,15 @@ import 'package:provider/provider.dart';
 class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String title;
   final Function()? onSearchTap;
-  final Function()? onFilterTap; // Add this line
-  
+  final Function()? onFilterTap;
+  final bool showBackButton;  // Add this parameter
+
   const CustomAppBar({
     super.key, 
     required this.title,
     this.onSearchTap,
-    this.onFilterTap, // Add this line
+    this.onFilterTap,
+    this.showBackButton = true,  // Default to true
   });
   
   @override
@@ -61,6 +63,27 @@ class _CustomAppBarState extends State<CustomAppBar> with SingleTickerProviderSt
     _overlayEntry = null;
   }
 
+  Widget _buildSuggestionTile(String suggestion) {
+    final isCategory = suggestion.startsWith('Category: ');
+    final isBrand = suggestion.startsWith('Brand: ');
+    
+    return ListTile(
+      leading: Icon(
+        isCategory ? Icons.category :
+        isBrand ? Icons.branding_watermark :
+        Icons.search,
+      ),
+      title: Text(suggestion),
+      onTap: () {
+        final query = isCategory || isBrand ? 
+            suggestion.split(': ')[1] : suggestion;
+        _searchController.text = query;
+        _removeOverlay();
+        _onSearchSubmitted(query);
+      },
+    );
+  }
+
   void _showSuggestions() {
     _removeOverlay();
     
@@ -95,15 +118,9 @@ class _CustomAppBarState extends State<CustomAppBar> with SingleTickerProviderSt
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (searchProvider.suggestions.isNotEmpty)
-                        ...searchProvider.suggestions.map((suggestion) => ListTile(
-                          leading: const Icon(Icons.search),
-                          title: Text(suggestion),
-                          onTap: () {
-                            _searchController.text = suggestion;
-                            _removeOverlay();
-                            _onSearchSubmitted(suggestion);
-                          },
-                        )).toList()
+                        ...searchProvider.suggestions.map((suggestion) => 
+                          _buildSuggestionTile(suggestion)
+                        ).toList()
                       else if (!searchProvider.isLoading)
                         const ListTile(
                           title: Text('No suggestions found'),
@@ -128,35 +145,46 @@ class _CustomAppBarState extends State<CustomAppBar> with SingleTickerProviderSt
   void _onSearchSubmitted(String query) {
     if (query.trim().isNotEmpty) {
       _removeOverlay();
-      _toggleSearch(); // Close search bar
+      _toggleSearch();
       
-      // Clear previous search results
       Provider.of<SearchProvider>(context, listen: false).clearSearch();
       
-      // Pop existing search screen if it exists and push new one
+      // Check if we're already on a search screen
       Navigator.of(context).popUntil((route) {
         if (route.settings.name == 'search') {
-          return false; // Pop the existing search screen
+          return false;
         }
-        return true; // Keep other screens
+        return true;
       });
       
       Navigator.push(
         context,
         MaterialPageRoute(
           settings: const RouteSettings(name: 'search'),
-          builder: (context) => SearchScreen(searchQuery: query),
+          builder: (context) => SearchScreen(
+            searchQuery: query,
+          ),
         ),
       );
     }
   }
 
+  bool _isRootRoute(BuildContext context) {
+    final ModalRoute<dynamic>? route = ModalRoute.of(context);
+    final isFirstRoute = !Navigator.canPop(context);
+    final isNamedRoot = route?.settings.name == 'product_list' || 
+                       route?.settings.name == 'home';
+    return isFirstRoute || isNamedRoot;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isRoot = _isRootRoute(context);
+    
     return AppBar(
       elevation: 0,
       automaticallyImplyLeading: false,
-      leading: Navigator.canPop(context) ? IconButton(
+      leading: (!isRoot) ? IconButton(
         icon: const Icon(Icons.arrow_back, color: Colors.white),
         onPressed: () => Navigator.of(context).pop(),
       ) : null,

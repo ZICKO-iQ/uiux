@@ -129,7 +129,7 @@ class ProductProvider extends ChangeNotifier {
       }
       _error = null;
     } catch (e) {
-      _error = "Error loading products: ${e.toString()}";
+      _error = 'Unable to connect to server. Please check your internet connection.';
       if (isFiltered) {
         _filteredProducts = [];
       } else {

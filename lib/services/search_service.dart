@@ -29,28 +29,65 @@ class SearchService {
 
     try {
       final pb = await _pbService.pb;
+      final suggestions = <String>[];
       
-      // Build filter string
-      String filterStr = 'view_name ~ "$query"';
+      // Search products
+      String productFilter = 'view_name ~ "$query"';
       if (filters != null && filters.isNotEmpty) {
         if (filters['category'] != null) {
-          filterStr += ' && category_id = "${filters['category']}"';
+          productFilter += ' && category_id = "${filters['category']}"';
         }
         if (filters['brand'] != null) {
-          filterStr += ' && brand_id = "${filters['brand']}"';
+          productFilter += ' && brand_id = "${filters['brand']}"';
         }
       }
 
       final productsResult = await pb.collection('products').getList(
-        filter: filterStr,
+        filter: productFilter,
         page: 1,
         perPage: limit,
       );
 
-      return productsResult.items
-          .map((record) => record.getStringValue('view_name'))
-          .where((name) => name.isNotEmpty)
-          .toList();
+      suggestions.addAll(
+        productsResult.items
+            .map((record) => record.getStringValue('view_name'))
+            .where((name) => name.isNotEmpty)
+      );
+
+      // If we have space for more suggestions, search categories and brands
+      if (suggestions.length < limit) {
+        final remainingLimit = limit - suggestions.length;
+        
+        // Search categories
+        final categoriesResult = await pb.collection('categories').getList(
+          filter: 'name ~ "$query"',
+          page: 1,
+          perPage: remainingLimit,
+        );
+
+        suggestions.addAll(
+          categoriesResult.items
+              .map((record) => "Category: ${record.getStringValue('name')}")
+              .where((name) => name.isNotEmpty)
+        );
+
+        // Search brands if we still have space
+        if (suggestions.length < limit) {
+          final brandsResult = await pb.collection('brands').getList(
+            filter: 'name ~ "$query"',
+            page: 1,
+            perPage: limit - suggestions.length,
+          );
+
+          suggestions.addAll(
+            brandsResult.items
+                .map((record) => "Brand: ${record.getStringValue('name')}")
+                .where((name) => name.isNotEmpty)
+          );
+        }
+      }
+
+      return suggestions.take(limit).toList();
     } catch (e) {
       throw Exception('Failed to get search suggestions: $e');
     }
@@ -65,8 +102,12 @@ class SearchService {
   }) async {
     try {
       final pb = await _pbService.pb;
-      
-      // Build filter string
+      List<Product> products = [];
+      List<Category> categories = [];
+      List<Brand> brands = [];
+
+      // Search products first
+      String productFilter = 'view_name ~ "$query"';
       List<String> filterConditions = ['view_name ~ "$query"'];
       
       if (filters != null && filters.isNotEmpty) {
@@ -84,26 +125,42 @@ class SearchService {
 
       final filterStr = filterConditions.join(' && ');
 
-      // Build sort string
-      String sortStr = sortBy == null ? '-created' : _getSortString(sortBy);
-
       final productsResult = await pb.collection('products').getList(
-        filter: filterStr,
-        sort: sortStr,
+        filter: productFilter,
+        sort: sortBy == null ? '-created' : _getSortString(sortBy),
         expand: 'category_id,brand_id',
         page: page,
         perPage: itemsPerPage,
       );
 
-      final products = await Future.wait(
+      products = await Future.wait(
         productsResult.items.map((record) => Product.fromRecord(record)).toList()
       );
 
-      final categoryIds = products.map((p) => p.category.id).toSet();
-      final brandIds = products.map((p) => p.brand.id).toSet();
+      // If no products found or on first page, search categories and brands
+      if (products.isEmpty || page == 1) {
+        // Search categories
+        final categoriesResult = await pb.collection('categories').getList(
+          filter: 'name ~ "$query"',
+          page: 1,
+          perPage: 10,
+        );
+        
+        categories = categoriesResult.items
+            .map((record) => Category.fromRecord(record))
+            .toList();
 
-      final categories = await _fetchCategories(pb, categoryIds);
-      final brands = await _fetchBrands(pb, brandIds);
+        // Search brands
+        final brandsResult = await pb.collection('brands').getList(
+          filter: 'name ~ "$query"',
+          page: 1,
+          perPage: 10,
+        );
+        
+        brands = brandsResult.items
+            .map((record) => Brand.fromRecord(record))
+            .toList();
+      }
 
       return SearchResult(
         products: products,

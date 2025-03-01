@@ -30,7 +30,7 @@ class CategoryProvider extends ChangeNotifier {
       _isInitialized = true;
       _error = null;
     } catch (e) {
-      _error = 'Failed to load categories: ${e.toString()}';
+      _error = 'Unable to connect to server. Please check your internet connection.';
       _categories = [];
       _isInitialized = false;
     } finally {
