@@ -8,6 +8,26 @@ import 'package:uiux/views/auth/auth_screen.dart';
 import 'package:uiux/views/profile/profile_screen.dart';
 import 'providers/navigation_provider.dart';
 
+class KeepAlivePage extends StatefulWidget {
+  final Widget child;
+
+  const KeepAlivePage({Key? key, required this.child}) : super(key: key);
+
+  @override
+  _KeepAlivePageState createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<KeepAlivePage> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
+}
+
 class RoutePage extends StatefulWidget {
   @override
   _RoutePageState createState() => _RoutePageState();
@@ -83,37 +103,45 @@ class _RoutePageState extends State<RoutePage> {
           child: IndexedStack(
             index: navigationProvider.selectedIndex,
             children: [
-              Navigator(
-                key: _navigatorKeys[0], // Navigator for Home Tab
-                onGenerateRoute: (routeSettings) {
-                  return MaterialPageRoute(
-                    builder: (context) => HomePage(),
-                  );
-                },
+              KeepAlivePage(
+                child: Navigator(
+                  key: _navigatorKeys[0],
+                  onGenerateRoute: (routeSettings) {
+                    return MaterialPageRoute(
+                      builder: (context) => HomePage(),
+                    );
+                  },
+                ),
               ),
-              Navigator(
-                key: _navigatorKeys[1], // Navigator for Category Tab
-                onGenerateRoute: (routeSettings) {
-                  return MaterialPageRoute(
-                    builder: (context) => CategoryPage(),
-                  );
-                },
+              KeepAlivePage(
+                child: Navigator(
+                  key: _navigatorKeys[1],
+                  onGenerateRoute: (routeSettings) {
+                    return MaterialPageRoute(
+                      builder: (context) => CategoryPage(),
+                    );
+                  },
+                ),
               ),
-              Navigator(
-                key: _navigatorKeys[2], // Navigator for Cart Tab
-                onGenerateRoute: (routeSettings) {
-                  return MaterialPageRoute(
-                    builder: (context) => CartPage(),
-                  );
-                },
+              KeepAlivePage(
+                child: Navigator(
+                  key: _navigatorKeys[2],
+                  onGenerateRoute: (routeSettings) {
+                    return MaterialPageRoute(
+                      builder: (context) => CartPage(),
+                    );
+                  },
+                ),
               ),
-              Navigator(
-                key: _navigatorKeys[3], // Navigator for Profile Tab
-                onGenerateRoute: (routeSettings) {
-                  return MaterialPageRoute(
-                    builder: (context) => ProfilePage(),
-                  );
-                },
+              KeepAlivePage(
+                child: Navigator(
+                  key: _navigatorKeys[3],
+                  onGenerateRoute: (routeSettings) {
+                    return MaterialPageRoute(
+                      builder: (context) => ProfilePage(),
+                    );
+                  },
+                ),
               ),
               Navigator(
                 key: _navigatorKeys[4],

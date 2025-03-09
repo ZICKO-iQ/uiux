@@ -80,16 +80,16 @@ class FilteredProductScreen extends StatelessWidget {
               }
             },
             child: GridView.builder(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.fromLTRB(4, 4, 4, 13), // Updated padding
               physics: const AlwaysScrollableScrollPhysics(),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: MediaQuery.of(context).orientation == Orientation.landscape ? 3 : 2,
+                crossAxisCount: MediaQuery.of(context).orientation == Orientation.landscape ? 4 : 3, // Updated columns
                 childAspectRatio: MediaQuery.of(context).orientation == Orientation.landscape
-                    ? 1.05
+                    ? 0.95
                     : MediaQuery.of(context).size.width /
-                      (MediaQuery.of(context).size.height * 0.5),
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
+                      (MediaQuery.of(context).size.height * 0.70), // Updated ratio
+                crossAxisSpacing: 4, // Reduced spacing
+                mainAxisSpacing: 4, // Reduced spacing
               ),
               itemCount: products.length,
               itemBuilder: (context, index) {

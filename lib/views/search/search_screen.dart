@@ -131,6 +131,26 @@ class _SearchScreenState extends State<SearchScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Updated search query display
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.bgGrey,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Showing results for "${widget.searchQuery}"',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: AppColors.textGrey,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Rest of the existing widgets
                 if (hasCategoriesOrBrands)
                   _buildCategoriesAndBrandsSection(searchProvider),
                 const Text(

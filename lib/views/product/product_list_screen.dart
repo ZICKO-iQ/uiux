@@ -8,6 +8,7 @@ import '../../providers/filter_provider.dart';
 import '../shared/app_bar.dart';
 import '../filters/filter_bottom_sheet.dart';
 import 'product_widget.dart';
+import '../../widgets/banner_carousel.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -185,23 +186,40 @@ class HomePage extends StatelessWidget {
                     child: RefreshIndicator(
                       onRefresh: productProvider.refreshProducts,
                       color: AppColors.primary,
-                      child: GridView.builder(
-                        padding: const EdgeInsets.all(8),
+                      child: CustomScrollView(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: MediaQuery.of(context).orientation == Orientation.landscape ? 3 : 2, // Changed from 4 to 3
-                          childAspectRatio: MediaQuery.of(context).orientation == Orientation.landscape
-                              ? 1.05  // Changed from 1.0 to 0.85 for better proportion
-                              : MediaQuery.of(context).size.width /
-                                (MediaQuery.of(context).size.height * 0.5),
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 8,
-                        ),
-                        itemCount: filteredProducts.length,
-                        itemBuilder: (context, index) {
-                          final product = filteredProducts[index];
-                          return BuildItemCard(product: product);
-                        },
+                        slivers: [
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8.0,
+                                vertical: 16.0,
+                              ),
+                              child: PromotionalBanner(),
+                            ),
+                          ),
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(4, 4, 4, 13),
+                            sliver: SliverGrid(
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: MediaQuery.of(context).orientation == Orientation.landscape ? 4 : 3,
+                                childAspectRatio: MediaQuery.of(context).orientation == Orientation.landscape
+                                    ? 0.95
+                                    : MediaQuery.of(context).size.width /
+                                      (MediaQuery.of(context).size.height * 0.70),
+                                crossAxisSpacing: 4,
+                                mainAxisSpacing: 4,
+                              ),
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                                  final product = filteredProducts[index];
+                                  return BuildItemCard(product: product);
+                                },
+                                childCount: filteredProducts.length,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

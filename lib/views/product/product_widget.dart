@@ -32,16 +32,16 @@ class BuildItemCard extends StatelessWidget {
     final nameFontSize = isLandscape ? screenWidth * 0.022 : screenWidth * 0.032;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 2), // Reduced margin
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12), // Smaller radius
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 12,
-            spreadRadius: 2,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.06), // Lighter shadow
+            blurRadius: 8,
+            spreadRadius: 1,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -66,7 +66,7 @@ class BuildItemCard extends StatelessWidget {
                   ),
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.all(8), // Reduced padding
+                      padding: const EdgeInsets.all(6), // Reduced padding
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.spaceBetween, // Change this
@@ -79,26 +79,27 @@ class BuildItemCard extends StatelessWidget {
                                 Text(
                                   product.brand.name,
                                   style: TextStyle(
-                                    fontSize: brandFontSize,  // Use new font size
+                                    fontSize: brandFontSize * 0.85, // Made slightly smaller
                                     color: Colors.grey[600],
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                const SizedBox(height: 2),
+                                const SizedBox(height: 1),
                                 Text(
                                   product.viewName,
                                   style: TextStyle(
-                                    fontSize: nameFontSize,  // Use new font size
-                                    fontWeight: FontWeight.w600,
+                                    fontSize: nameFontSize * 1.1, // Made slightly bigger
+                                    fontWeight: FontWeight.w500, // Less bold
+                                    height: 1.2, // Added line height
                                   ),
-                                  maxLines: 2,
+                                  maxLines: 1, // Changed from 2 to 1
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 4),  // Add spacing
+                          const SizedBox(height: 2),  // Reduced spacing
                           _buildPriceSection(),
                         ],
                       ),

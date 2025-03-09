@@ -19,6 +19,10 @@ class AppColors {
   static const Color textSecondary = Colors.black; 
   static const Color hypertext = Colors.blue; 
 
+  // Grey Colors
+  static const Color textGrey = Color(0xFF757575);
+  static const Color bgGrey = Color(0xFFEEEEEE);
+
   // Status Colors
   static const Color warning = Color(0xFFFFA726); // Orange
   static const Color failed = Color(0xFFD32F2F); // Red
