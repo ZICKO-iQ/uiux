@@ -78,10 +78,34 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ..clearSnackBars()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
-          backgroundColor: backgroundColor,
+          content: Row(
+            children: [
+              Icon(
+                Icons.check_circle_outline,
+                color: AppColors.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  message,
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
           behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(8),
+          margin: const EdgeInsets.all(10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(color: AppColors.primary.withOpacity(0.3), width: 1),
+          ),
+          backgroundColor: Colors.white,
+          elevation: 4,
           duration: const Duration(seconds: 1),
         ),
       );
@@ -371,19 +395,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 );
 
                 if (warning != null) {
-                  _showSnackBar(
-                    warning,
-                    backgroundColor: AppColors.warning,
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(warning),
+                      duration: const Duration(milliseconds: 1000),
+                      behavior: SnackBarBehavior.floating,
+                      margin: const EdgeInsets.all(8),
+                      backgroundColor: AppColors.warning,
+                    ),
                   );
                   if (validatedQuantity <= 0) return;
                 }
 
                 cart.addItem(widget.product, quantity: validatedQuantity);
-                _showSnackBar('Added $validatedQuantity item(s) to cart');
+                _showSnackBar('Added ${AppFormatters.formatQuantity(validatedQuantity, widget.product.unit == ProductUnit.kilo)} ${widget.product.unit == ProductUnit.kilo ? "kg" : "item(s)"} to cart');
               } catch (e) {
-                _showSnackBar(
-                  'Failed to add item to cart',
-                  backgroundColor: AppColors.failed,
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to add item to cart'),
+                    behavior: SnackBarBehavior.floating,
+                    margin: const EdgeInsets.all(8),
+                    backgroundColor: AppColors.failed,
+                  ),
                 );
               }
             },

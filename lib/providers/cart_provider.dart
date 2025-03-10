@@ -1,9 +1,46 @@
 import 'package:flutter/foundation.dart';
 import '../models/cart_item.dart';
 import '../models/product.dart';
+import '../services/cart_storage.dart';
 
 class CartProvider with ChangeNotifier {
   final List<CartItem> _items = [];
+  final CartStorage _storage = CartStorage();
+  bool _initialized = false;
+  // Add storage for last removed item to enable undo
+  CartItem? _lastRemovedItem;
+  int? _lastRemovedIndex;
+  
+  CartProvider() {
+    _loadCartFromStorage();
+  }
+  
+  // Load cart items from storage when provider is initialized
+  Future<void> _loadCartFromStorage() async {
+    if (_initialized) return;
+    
+    try {
+      final loadedItems = await _storage.loadCartItems();
+      if (loadedItems.isNotEmpty) {
+        _items.clear();
+        _items.addAll(loadedItems);
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Error loading cart: $e');
+    } finally {
+      _initialized = true;
+    }
+  }
+  
+  // Save cart to storage whenever it changes
+  Future<void> _saveCartToStorage() async {
+    try {
+      await _storage.saveCartItems(_items);
+    } catch (e) {
+      print('Error saving cart: $e');
+    }
+  }
   
   List<CartItem> get items => [..._items];
   
@@ -45,7 +82,9 @@ class CartProvider with ChangeNotifier {
         ),
       );
     }
+    
     notifyListeners();
+    _saveCartToStorage(); // Save cart after changes
   }
 
   bool hasItem(String productId) {
@@ -68,9 +107,43 @@ class CartProvider with ChangeNotifier {
     return item.quantity;
   }
 
-  void removeItem(String id) {
-    _items.removeWhere((item) => item.id == id);
-    notifyListeners();
+  // Modified to store the removed item for potential undo
+  CartItem removeItem(String id) {
+    final index = _items.indexWhere((item) => item.id == id);
+    if (index >= 0) {
+      // Store the item and its position before removal
+      _lastRemovedItem = _items[index];
+      _lastRemovedIndex = index;
+      
+      // Remove the item
+      final removedItem = _items.removeAt(index);
+      notifyListeners();
+      _saveCartToStorage(); // Save cart after changes
+      return removedItem;
+    }
+    throw Exception('Item not found in cart');
+  }
+
+  // New method to undo last removal
+  bool undoRemove() {
+    if (_lastRemovedItem != null && _lastRemovedIndex != null) {
+      // Insert the item back at its original position if possible
+      if (_lastRemovedIndex! <= _items.length) {
+        _items.insert(_lastRemovedIndex!, _lastRemovedItem!);
+      } else {
+        _items.add(_lastRemovedItem!);
+      }
+      
+      // Reset the stored item
+      final undoneItem = _lastRemovedItem;
+      _lastRemovedItem = null;
+      _lastRemovedIndex = null;
+      
+      notifyListeners();
+      _saveCartToStorage(); // Save cart after changes
+      return true;
+    }
+    return false;
   }
 
   void updateQuantity(String id, double quantity) {
@@ -88,7 +161,17 @@ class CartProvider with ChangeNotifier {
       if (quantity >= minQuantity) {
         _items[index].quantity = quantity;
         notifyListeners();
+        _saveCartToStorage(); // Save cart after changes
       }
     }
+  }
+  
+  // Method to clear the entire cart
+  void clearCart() {
+    _items.clear();
+    _lastRemovedItem = null;
+    _lastRemovedIndex = null;
+    notifyListeners();
+    _storage.clearCart(); // Clear stored data
   }
 }

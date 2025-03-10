@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
+import 'dart:math' show sin, cos, sqrt, atan2, pi;
 import '../../core/colors.dart';
 import '../../providers/cart_provider.dart';
-import '../../utils/formatters.dart';  // Add this import
+import '../../utils/formatters.dart';
 import '../shared/app_bar.dart';
 import 'cart_item_card.dart';
 
-class CartPage extends StatefulWidget {  // Changed to StatefulWidget
+class CartPage extends StatefulWidget {
   const CartPage({super.key});
 
   @override
@@ -16,36 +18,36 @@ class CartPage extends StatefulWidget {  // Changed to StatefulWidget
 }
 
 class _CartPageState extends State<CartPage> {
-  final List<Map<String, dynamic>> branches = [  // Move branches to class field
+  final List<Map<String, dynamic>> branches = [
     {
       'name': 'Arkhasluk 1',
       'location': 'Near Al-Khasluk Main Square',
-      'lat': 32.3840,  // Add actual coordinates
-      'lng': 20.8288,
+      'lat': 32.62601212555854,
+      'lng': 44.003622600894936,
     },
     {
       'name': 'Arkhasluk 4',
       'location': 'Next to Al-Khasluk Health Center',
-      'lat': 32.3860,  // Add actual coordinates
-      'lng': 20.8308,
+      'lat': 32.55735684497551,
+      'lng': 44.04670641022626,
     },
     {
       'name': 'Arkhasluk 5',
       'location': 'Opposite to Al-Khasluk Mosque',
-      'lat': 32.3875,  // Add actual coordinates
-      'lng': 20.8298,
+      'lat': 32.5648226892567,
+      'lng': 44.02437023906183,
     },
     {
       'name': 'Arkhasluk 6',
       'location': 'Behind Al-Khasluk School',
-      'lat': 32.3855,  // Add actual coordinates
-      'lng': 20.8318,
+      'lat': 32.607563547645476, 
+      'lng': 44.0102665025351,
     },
     {
       'name': 'Arkhasluk 7',
-      'location': 'Near Al-Khasluk Park',
-      'lat': 32.3845,  // Add actual coordinates
-      'lng': 20.8328,
+      'location': 'Karbalaو al-Qadisya',
+      'lat': 32.638120190015705, 
+      'lng': 43.98174506974492,
     },
   ];
 
@@ -56,6 +58,35 @@ class _CartPageState extends State<CartPage> {
     'Arkhasluk 6': '+9647729177964',
     'Arkhasluk 7': '+9647729177964',
   };
+
+  // Track if we're currently fetching location
+  bool _isLoadingLocation = false;
+  // Store user position when available
+  Position? _userPosition;
+  // Track if we've already started the background location fetch
+  bool _locationFetchStarted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start background location fetch as soon as the page loads
+    _startBackgroundLocationFetch();
+  }
+
+  // Start location fetch in the background without blocking UI
+  void _startBackgroundLocationFetch() {
+    if (_locationFetchStarted) return;
+    _locationFetchStarted = true;
+    
+    // Get location in background without showing loading indicator
+    _getCurrentLocation(showLoading: false).then((position) {
+      if (position != null && mounted) {
+        setState(() {
+          _userPosition = position;
+        });
+      }
+    });
+  }
 
   String _formatCartDetails(CartProvider cart, String? specialNote, String selectedBranch) {
     final StringBuffer buffer = StringBuffer();
@@ -105,7 +136,7 @@ class _CartPageState extends State<CartPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.failed)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -122,33 +153,131 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
+  // Updated to accept optional showLoading parameter
+  Future<Position?> _getCurrentLocation({bool showLoading = true}) async {
+    if (showLoading && mounted) {
+      setState(() {
+        _isLoadingLocation = true;
+      });
+    }
+
+    try {
+      // If we already have a position, return it immediately
+      if (_userPosition != null) {
+        return _userPosition;
+      }
+
+      // Check if location services are enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        // Location services are not enabled
+        if (!context.mounted) return null;
+        _showStyledSnackBar(
+          message: 'Location services are disabled. Please enable to find the nearest branch.',
+          icon: Icons.location_off,
+          isError: true,
+        );
+        return null;
+      }
+
+      // Check for location permission
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          // Permissions are denied
+          if (!context.mounted) return null;
+          _showStyledSnackBar(
+            message: 'Location permissions are denied. Unable to find nearest branch.',
+            icon: Icons.location_disabled,
+            isError: true,
+          );
+          return null;
+        }
+      }
+      
+      if (permission == LocationPermission.deniedForever) {
+        // Permissions are permanently denied
+        if (!context.mounted) return null;
+        _showStyledSnackBar(
+          message: 'Location permissions are permanently denied. Please enable in settings to find nearest branch.',
+          icon: Icons.location_disabled,
+          isError: true,
+        );
+        return null;
+      }
+
+      // Get current position with timeout to ensure we don't wait forever
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 5), // Add timeout for quicker response
+      );
+      
+      return position;
+    } catch (e) {
+      if (showLoading && !context.mounted) return null;
+      // Only show error for explicit location requests, not background ones
+      if (showLoading && context.mounted) {
+        _showStyledSnackBar(
+          message: 'Failed to get location: $e',
+          icon: Icons.error_outline,
+          isError: true,
+        );
+      }
+      return null;
+    } finally {
+      if (showLoading && mounted) {
+        setState(() {
+          _isLoadingLocation = false;
+        });
+      }
+    }
+  }
+
   double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-    // Simple Euclidean distance for demonstration
-    // In production, use Haversine formula for more accurate results
-    return ((lat2 - lat1) * (lat2 - lat1) + (lon2 - lon1) * (lon2 - lon1));
+    // Implement Haversine formula for accurate distance calculation
+    const radius = 6371.0; // Earth radius in kilometers
+    
+    // Convert to radians
+    final dLat = (lat2 - lat1) * (pi / 180);
+    final dLon = (lon2 - lon1) * (pi / 180);
+    
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+              cos(lat1 * (pi / 180)) * cos(lat2 * (pi / 180)) *
+              sin(dLon / 2) * sin(dLon / 2);
+              
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    
+    return radius * c; // Distance in kilometers
   }
 
   Map<String, dynamic> _findNearestBranch(double userLat, double userLng) {
-    return branches.reduce((curr, next) {
-      double currDist = _calculateDistance(
+    // Use proper distance calculation to find nearest branch
+    Map<String, dynamic>? nearest;
+    double minDistance = double.infinity;
+    
+    for (var branch in branches) {
+      final distance = _calculateDistance(
         userLat, 
         userLng, 
-        curr['lat'] as double, 
-        curr['lng'] as double
+        branch['lat'] as double, 
+        branch['lng'] as double
       );
-      double nextDist = _calculateDistance(
-        userLat, 
-        userLng, 
-        next['lat'] as double, 
-        next['lng'] as double
-      );
-      return currDist < nextDist ? curr : next;
-    });
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearest = branch;
+      }
+    }
+    
+    return nearest ?? branches.first;
   }
 
+  // Modified to work with or without a nearest branch
   Future<String?> _showBranchDialog(BuildContext context, {Map<String, dynamic>? nearestBranch}) async {
-    bool showOtherBranches = false;
-    String? selectedBranchName = nearestBranch?['name'] as String?;
+    bool showOtherBranches = nearestBranch == null;
+    // If we don't have a nearest branch, default to first one but show all branches
+    String? selectedBranchName = nearestBranch?['name'] as String? ?? branches.first['name'] as String;
 
     return showDialog<String>(
       context: context,
@@ -179,7 +308,7 @@ class _CartPageState extends State<CartPage> {
                       Row(
                         children: [
                           Icon(
-                            selectedBranchName == nearestBranch?['name'] 
+                            nearestBranch != null && selectedBranchName == nearestBranch['name'] 
                                 ? Icons.near_me 
                                 : Icons.store,
                             color: AppColors.primary
@@ -187,7 +316,7 @@ class _CartPageState extends State<CartPage> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              selectedBranchName == nearestBranch?['name']
+                              nearestBranch != null && selectedBranchName == nearestBranch['name']
                                   ? 'Nearest branch to you:'
                                   : 'Your selected branch:',
                               style: TextStyle(
@@ -200,7 +329,7 @@ class _CartPageState extends State<CartPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        selectedBranchName ?? '',
+                        selectedBranchName!,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -273,7 +402,7 @@ class _CartPageState extends State<CartPage> {
               children: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+                  child: const Text('Cancel', style: TextStyle(color: AppColors.failed)),
                 ),
                 ElevatedButton.icon(
                   onPressed: () => Navigator.pop(context, selectedBranchName),
@@ -323,25 +452,45 @@ class _CartPageState extends State<CartPage> {
       if (!context.mounted) return;
       // Fallback to clipboard
       await Clipboard.setData(ClipboardData(text: message));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not open WhatsApp. Cart details copied to clipboard instead.'),
-          duration: Duration(seconds: 3),
-        ),
+      _showStyledSnackBar(
+        message: 'Could not open WhatsApp. Cart details copied to clipboard instead.',
+        icon: Icons.content_copy,
       );
     }
   }
 
+  // Updated to use cached location if available
   Future<void> _processOrder(BuildContext context, CartProvider cart) async {
     try {
-      const userLat = 32.3850;
-      const userLng = 20.8300;
-      
-      final nearestBranch = _findNearestBranch(userLat, userLng);
-      
+      // Get the note first, so we don't delay UI interaction
       final String? note = await _showNoteDialog(context, cart);
       if (!context.mounted) return;
       
+      Map<String, dynamic>? nearestBranch;
+      
+      // Use cached position if available
+      if (_userPosition != null) {
+        nearestBranch = _findNearestBranch(
+          _userPosition!.latitude,
+          _userPosition!.longitude
+        );
+      } else {
+        // Try to get location quickly, but don't block UI too long
+        final position = await _getCurrentLocation(showLoading: true);
+        
+        if (position != null) {
+          _userPosition = position;
+          nearestBranch = _findNearestBranch(
+            position.latitude,
+            position.longitude
+          );
+        }
+        // If we can't get location quickly, proceed without it
+      }
+      
+      if (!context.mounted) return;
+      
+      // Show branch dialog - works with or without nearest branch data
       final String? selectedBranch = await _showBranchDialog(
         context,
         nearestBranch: nearestBranch,
@@ -354,12 +503,153 @@ class _CartPageState extends State<CartPage> {
       
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to process order'),
-          duration: Duration(seconds: 2),
+      _showStyledSnackBar(
+        message: 'Failed to process order: $e',
+        icon: Icons.error_outline,
+        isError: true,
+      );
+    }
+  }
+
+  // Add this new method to show confirmation dialog before clearing cart
+  Future<void> _confirmClearCart(BuildContext context) async {
+    final bool? result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.delete_forever, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Clear Cart'),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to remove all items from your cart? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Clear All'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      if (context.mounted) {
+        // Clear the cart
+        final cart = Provider.of<CartProvider>(context, listen: false);
+        cart.clearCart();
+        
+        // Show confirmation with styled snackbar
+        _showStyledSnackBar(
+          message: 'Your cart has been cleared',
+          icon: Icons.delete_sweep,
+          duration: const Duration(seconds: 2),
+        );
+      }
+    }
+  }
+
+  // Add this helper method to show styled snackbars
+  void _showStyledSnackBar({
+    required String message,
+    SnackBarAction? action,
+    Duration? duration,
+    IconData? icon,
+    bool isError = false,
+    bool isSuccess = false,
+  }) {
+    if (!context.mounted) return;
+    
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            // Show icon if provided
+            if (icon != null) ...[
+              Icon(
+                icon,
+                color: isError 
+                  ? Colors.white 
+                  : (isSuccess ? Colors.white : AppColors.textPrimary),
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(
+                  color: isError 
+                    ? Colors.white
+                    : (isSuccess ? Colors.white : AppColors.textSecondary),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        duration: duration ?? const Duration(seconds: 3),
+        action: action,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        margin: const EdgeInsets.all(8),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16, 
+          vertical: 12,
+        ),
+        backgroundColor: isError 
+            ? AppColors.failed 
+            : (isSuccess ? AppColors.primary : Colors.white),
+        elevation: 4,
+      ),
+    );
+  }
+
+  // Updated method to handle item removal with undo functionality - removed redundant restore notification
+  void _handleItemRemove(BuildContext context, String itemId, String itemTitle) {
+    final cart = Provider.of<CartProvider>(context, listen: false);
+    
+    try {
+      // Check if this is the last item before removing
+      final isLastItem = cart.items.length == 1;
+      final removedItem = cart.removeItem(itemId);
+      
+      // Show snackbar with undo option
+      _showStyledSnackBar(
+        message: '${removedItem.title} removed from cart',
+        icon: Icons.remove_shopping_cart,
+        action: SnackBarAction(
+          label: 'UNDO',
+          textColor: AppColors.primary,
+          onPressed: () {
+            // Try to undo the removal without showing another snackbar
+            cart.undoRemove();
+            // No additional snackbar needed as the item reappearing in the cart is feedback enough
+          },
         ),
       );
+    } catch (e) {
+      if (context.mounted) {
+        _showStyledSnackBar(
+          message: 'Error removing item: $e',
+          icon: Icons.error_outline,
+          isError: true,
+        );
+      }
     }
   }
 
@@ -368,9 +658,14 @@ class _CartPageState extends State<CartPage> {
     return Scaffold(
       appBar: CustomAppBar(title: 'Shopping Cart',
         onSearchTap: () {},),
-      backgroundColor: AppColors.bgWhite,  // Changed from Colors.grey[100]
+      backgroundColor: AppColors.bgWhite,
       body: Consumer<CartProvider>(
         builder: (context, cart, child) {
+          // Start background location fetch if not already started
+          if (!_locationFetchStarted) {
+            _startBackgroundLocationFetch();
+          }
+          
           if (cart.items.isEmpty) {
             return Center(
               child: Column(
@@ -379,14 +674,14 @@ class _CartPageState extends State<CartPage> {
                   Icon(
                     Icons.shopping_cart_outlined,
                     size: 100,
-                    color: AppColors.textGrey,  // Changed from Colors.grey[400]
+                    color: AppColors.textGrey,
                   ),
                   const SizedBox(height: 20),
                   Text(
                     'Your cart is empty',
                     style: TextStyle(
                       fontSize: 20,
-                      color: AppColors.textGrey,  // Changed from Colors.grey[600]
+                      color: AppColors.textGrey,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -408,7 +703,7 @@ class _CartPageState extends State<CartPage> {
                       onQuantityChanged: (quantity) {
                         cart.updateQuantity(item.id, quantity);
                       },
-                      onDelete: () => cart.removeItem(item.id),
+                      onDelete: () => _handleItemRemove(context, item.id, item.title),
                     );
                   },
                 ),
@@ -422,7 +717,7 @@ class _CartPageState extends State<CartPage> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.textSecondary.withOpacity(0.05),  // Changed from Colors.black
+                      color: AppColors.textSecondary.withOpacity(0.05),
                       spreadRadius: 1,
                       blurRadius: 10,
                     ),
@@ -452,29 +747,104 @@ class _CartPageState extends State<CartPage> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    SizedBox(
-                      height: 45,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          final cart = Provider.of<CartProvider>(context, listen: false);
-                          _processOrder(context, cart);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          minimumSize: const Size(double.infinity, 45),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                    Row(
+                      children: [
+                        // Fix the clear cart button
+                        Expanded(
+                          // Increase flex from 1 to 2 to give more space for the text
+                          flex: 2,
+                          child: SizedBox(
+                            height: 45,
+                            child: OutlinedButton(
+                              onPressed: () => _confirmClearCart(context),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.red,
+                                side: const BorderSide(color: Colors.red, width: 1.5),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: EdgeInsets.zero, // Reduce padding
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.red,
+                                    size: 20, // Slightly smaller icon
+                                  ),
+                                  SizedBox(width: 4), // Less space
+                                  Text(
+                                    "Clear",
+                                    style: TextStyle(
+                                      color: Colors.red,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13, // Slightly smaller text
+                                    ),
+                                    maxLines: 1, // Force single line
+                                    overflow: TextOverflow.visible,
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                        child: const Text(
-                          'Send to WhatsApp',
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                        const SizedBox(width: 12),
+                        // Main WhatsApp button
+                        Expanded(
+                          // Reduce flex from 3 to 2 since the clear button is wider
+                          flex: 3,
+                          child: SizedBox(
+                            height: 45,
+                            child: ElevatedButton(
+                              onPressed: _isLoadingLocation
+                                  ? null
+                                  : () {
+                                      final cart = Provider.of<CartProvider>(context, listen: false);
+                                      _processOrder(context, cart);
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                minimumSize: const Size(double.infinity, 45),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: _isLoadingLocation
+                                  ? const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            color: AppColors.textPrimary,
+                                            strokeWidth: 3,
+                                          ),
+                                        ),
+                                        SizedBox(width: 12),
+                                        Text(
+                                          'Getting location...',
+                                          style: TextStyle(
+                                            color: AppColors.textPrimary,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : const Text(
+                                      'Send to WhatsApp',
+                                      style: TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                   ],
                 ),

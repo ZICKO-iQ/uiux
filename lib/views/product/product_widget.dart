@@ -147,13 +147,32 @@ class BuildItemCard extends StatelessWidget {
                           ScaffoldMessenger.of(context).hideCurrentSnackBar();
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(
-                                warning ?? (isInCart ? 'Increased quantity in cart' : 'Added to cart')
+                              content: Row(
+                                children: [
+                                  Icon(
+                                    Icons.check_circle_outline,
+                                    color: AppColors.primary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Added to cart',
+                                    style: TextStyle(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              duration: const Duration(milliseconds: 500),
                               behavior: SnackBarBehavior.floating,
-                              margin: const EdgeInsets.all(8),
-                              backgroundColor: warning != null ? AppColors.warning : AppColors.primary,
+                              margin: const EdgeInsets.all(10),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                side: BorderSide(color: AppColors.primary.withOpacity(0.3), width: 1),
+                              ),
+                              backgroundColor: Colors.white,
+                              elevation: 4,
+                              duration: const Duration(seconds: 1),
                             ),
                           );
                         } else if (warning != null) {
