@@ -109,6 +109,29 @@ class BuildItemCard extends StatelessWidget {
               ),
             ),
           ),
+          if (product.quantity < 15) // Show circular icon for low quantity
+            Positioned(
+              top: 8,
+              left: 8,
+              child: Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: product.quantity < 1 ? Colors.red : Colors.orange, // Red for <1, Orange for <15
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  child: Text(
+                    '!',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           Positioned(
             top: 8,
             right: 8,
@@ -139,13 +162,15 @@ class BuildItemCard extends StatelessWidget {
                           requestedQuantity: 1.0,
                           cartProvider: cart,
                           context: context,
+                          product: product,  // Add this line
                         );
 
                         if (adjustedQuantity > 0) {
                           cart.addItem(product);
                           
-                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          ScaffoldMessenger.of(context)
+                            ..removeCurrentSnackBar()  // Changed from hideCurrentSnackBar
+                            ..showSnackBar(
                             SnackBar(
                               content: Row(
                                 children: [
@@ -176,14 +201,36 @@ class BuildItemCard extends StatelessWidget {
                             ),
                           );
                         } else if (warning != null) {
-                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          ScaffoldMessenger.of(context)
+                            ..removeCurrentSnackBar()  // Changed from hideCurrentSnackBar
+                            ..showSnackBar(
                             SnackBar(
-                              content: Text(warning),
-                              duration: const Duration(milliseconds: 1000),
+                              content: Row(
+                                children: [
+                                  Icon(
+                                    Icons.warning_amber_rounded,
+                                    color: AppColors.warning,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    warning,
+                                    style: TextStyle(
+                                      color: AppColors.warning,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
                               behavior: SnackBarBehavior.floating,
-                              margin: const EdgeInsets.all(8),
-                              backgroundColor: AppColors.warning,
+                              margin: const EdgeInsets.all(10),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                side: BorderSide(color: AppColors.warning.withOpacity(0.3), width: 1),
+                              ),
+                              backgroundColor: Colors.white,
+                              elevation: 4,
+                              duration: const Duration(seconds: 2),
                             ),
                           );
                         }

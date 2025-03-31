@@ -2,10 +2,12 @@ import 'package:flutter/foundation.dart';
 import '../models/cart_item.dart';
 import '../models/product.dart';
 import '../services/cart_storage.dart';
+import '../services/pb_service.dart';
 
 class CartProvider with ChangeNotifier {
   final List<CartItem> _items = [];
   final CartStorage _storage = CartStorage();
+  final _pbService = PocketbaseService();
   bool _initialized = false;
   // Add storage for last removed item to enable undo
   CartItem? _lastRemovedItem;
@@ -13,6 +15,7 @@ class CartProvider with ChangeNotifier {
   
   CartProvider() {
     _loadCartFromStorage();
+    _initializeRealTimeSync();
   }
   
   // Load cart items from storage when provider is initialized
@@ -42,6 +45,59 @@ class CartProvider with ChangeNotifier {
     }
   }
   
+  void _initializeRealTimeSync() async {
+    try {
+      final pb = await _pbService.pb;
+      
+      pb.collection('Products').subscribe('*', (e) async {
+        try {
+          switch (e.action) {
+            case 'update':
+              final index = _items.indexWhere((item) => item.id == e.record!.id);
+              if (index != -1) {
+                // Safely handle price fields
+                int newPrice;
+                final discountPrice = e.record!.data['discount_price'];
+                final regularPrice = e.record!.data['price'];
+                
+                // Use discount price if available and greater than 0, otherwise use regular price
+                if (discountPrice != null && discountPrice > 0) {
+                  newPrice = discountPrice;
+                } else {
+                  newPrice = regularPrice;
+                }
+                
+                // Update cart item if price changed
+                if (_items[index].price != newPrice) {
+                  _items[index].price = newPrice;
+                  notifyListeners();
+                  await _saveCartToStorage();
+                }
+              }
+              break;
+              
+            case 'delete':
+              // Remove item from cart if product is deleted
+              if (_items.any((item) => item.id == e.record!.id)) {
+                removeItem(e.record!.id);
+              }
+              break;
+          }
+        } catch (error) {
+          print('Error processing cart real-time update: $error');
+        }
+      });
+    } catch (e) {
+      print('Error initializing cart real-time sync: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _pbService.pb.then((pb) => pb.collection('Products').unsubscribe());
+    super.dispose();
+  }
+  
   List<CartItem> get items => [..._items];
   
   int get totalAmount => _items.fold(
@@ -56,14 +112,13 @@ class CartProvider with ChangeNotifier {
     }
 
     quantity ??= product.unit == ProductUnit.kilo ? 0.25 : 1.0;
-    final double maxQuantity = 100.0;
 
     final existingItemIndex = _items.indexWhere((item) => item.id == product.id);
     
     if (existingItemIndex >= 0) {
       // Item already exists, increase quantity
       final newQuantity = _items[existingItemIndex].quantity + quantity;
-      if (newQuantity <= maxQuantity) {
+      if (newQuantity <= product.maxQuantity) {
         _items[existingItemIndex].quantity = newQuantity;
       }
     } else {
@@ -76,15 +131,16 @@ class CartProvider with ChangeNotifier {
               ? product.discountPrice!
               : product.price,
           image: product.images.first,
-          quantity: quantity <= maxQuantity ? quantity : maxQuantity,
+          quantity: quantity,
           size: 'Default',
           unit: product.unit,
+          maxQuantity: product.maxQuantity, // Add the maxQuantity here
         ),
       );
     }
     
     notifyListeners();
-    _saveCartToStorage(); // Save cart after changes
+    _saveCartToStorage();
   }
 
   bool hasItem(String productId) {
@@ -102,6 +158,7 @@ class CartProvider with ChangeNotifier {
         quantity: 0,
         size: '',
         unit: ProductUnit.piece,
+        maxQuantity: 5, // Add default maxQuantity
       ),
     );
     return item.quantity;
@@ -135,7 +192,6 @@ class CartProvider with ChangeNotifier {
       }
       
       // Reset the stored item
-      final undoneItem = _lastRemovedItem;
       _lastRemovedItem = null;
       _lastRemovedIndex = null;
       

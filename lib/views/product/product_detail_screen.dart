@@ -8,6 +8,7 @@ import '../../utils/formatters.dart'; // Add this import
 import '../shared/app_bar.dart';
 import '../../utils/image_validator.dart';
 import '../../utils/quantity_validator.dart'; // Add this import
+import '../../providers/product_provider.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
@@ -25,15 +26,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   double _quantity = 1.0; // Initialize with a default value
   int _selectedImageIndex = 0;
   late TextEditingController _quantityController;
+  late Product _currentProduct;
 
   @override
   void initState() {
     super.initState();
+    _currentProduct = widget.product;
     // Initialize quantity based on product unit
-    _quantity = AppFormatters.getMinQuantity(widget.product.unit);
+    _quantity = AppFormatters.getMinQuantity(_currentProduct.unit);
     _quantityController = TextEditingController(
         text: AppFormatters.formatQuantity(
-            _quantity, widget.product.unit == ProductUnit.kilo));
+            _quantity, _currentProduct.unit == ProductUnit.kilo));
   }
 
   @override
@@ -43,17 +46,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   void _updateQuantity(double newValue) {
-    final bool isKilo = widget.product.unit == ProductUnit.kilo;
+    final bool isKilo = _currentProduct.unit == ProductUnit.kilo;
     final double minQuantity =
-        AppFormatters.getMinQuantity(widget.product.unit);
+        AppFormatters.getMinQuantity(_currentProduct.unit);
 
     if (newValue >= minQuantity) {
       final cartProvider = Provider.of<CartProvider>(context, listen: false);
       final (validatedQuantity, warning) = QuantityValidator.validateQuantity(
-        productId: widget.product.id,
+        productId: _currentProduct.id,
         requestedQuantity: newValue,
         cartProvider: cartProvider,
         context: context,
+        product: _currentProduct,  // Add this line
       );
 
       if (warning != null) {
@@ -64,7 +68,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       }
 
       final double roundedValue =
-          AppFormatters.roundQuantity(validatedQuantity, widget.product.unit);
+          AppFormatters.roundQuantity(validatedQuantity, _currentProduct.unit);
       setState(() {
         _quantity = roundedValue;
         _quantityController.text =
@@ -75,7 +79,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   void _showSnackBar(String message, {Color? backgroundColor}) {
     ScaffoldMessenger.of(context)
-      ..clearSnackBars()
+      ..removeCurrentSnackBar()  // Changed from clearSnackBars
       ..showSnackBar(
         SnackBar(
           content: Row(
@@ -112,7 +116,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Widget _buildImageCarousel() {
-    if (widget.product.images.isEmpty) {
+    if (_currentProduct.images.isEmpty) {
       return Container(
         height: 300,
         color: Colors.grey[200],
@@ -132,7 +136,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               setState(() => _selectedImageIndex = index);
             },
           ),
-          items: widget.product.images.map((imageUrl) {
+          items: _currentProduct.images.map((imageUrl) {
             return ValidatedNetworkImage(
               imageUrl: imageUrl,
               fit: BoxFit.cover,
@@ -146,7 +150,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           right: 0,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: widget.product.images.asMap().entries.map((entry) {
+            children: _currentProduct.images.asMap().entries.map((entry) {
               return Container(
                 width: 8,
                 height: 8,
@@ -166,7 +170,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Widget _buildQuantitySelector() {
-    final bool isKilo = widget.product.unit == ProductUnit.kilo;
+    final bool isKilo = _currentProduct.unit == ProductUnit.kilo;
     final double step = isKilo ? 0.25 : 1.0;
     final double minQuantity = isKilo ? 0.25 : 1.0;
 
@@ -292,10 +296,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                           listen: false);
                                   final (validatedQuantity, warning) =
                                       QuantityValidator.validateQuantity(
-                                    productId: widget.product.id,
+                                    productId: _currentProduct.id,
                                     requestedQuantity: newValue,
                                     cartProvider: cartProvider,
                                     context: context,
+                                    product: _currentProduct,  // Add this line
                                   );
 
                                   if (warning != null) {
@@ -373,265 +378,363 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bool hasDiscount = widget.product.discountPrice != null &&
-        widget.product.discountPrice! > 0 &&
-        widget.product.discountPrice! < widget.product.price;
-
-    return Scaffold(
-      backgroundColor: AppColors.bgWhite,
-      appBar: CustomAppBar(title: widget.product.viewName),
-      floatingActionButton: Consumer<CartProvider>(
-        builder: (context, cart, child) {
-          return FloatingActionButton.extended(
-            onPressed: () {
-              try {
-                // Validate quantity before adding to cart
-                final (validatedQuantity, warning) =
-                    QuantityValidator.validateQuantity(
-                  productId: widget.product.id,
-                  requestedQuantity: _quantity,
-                  cartProvider: cart,
-                  context: context,
-                );
-
-                if (warning != null) {
-                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(warning),
-                      duration: const Duration(milliseconds: 1000),
-                      behavior: SnackBarBehavior.floating,
-                      margin: const EdgeInsets.all(8),
-                      backgroundColor: AppColors.warning,
-                    ),
-                  );
-                  if (validatedQuantity <= 0) return;
-                }
-
-                cart.addItem(widget.product, quantity: validatedQuantity);
-                _showSnackBar('Added ${AppFormatters.formatQuantity(validatedQuantity, widget.product.unit == ProductUnit.kilo)} ${widget.product.unit == ProductUnit.kilo ? "kg" : "item(s)"} to cart');
-              } catch (e) {
-                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Failed to add item to cart'),
-                    behavior: SnackBarBehavior.floating,
-                    margin: const EdgeInsets.all(8),
-                    backgroundColor: AppColors.failed,
-                  ),
-                );
-              }
-            },
-            backgroundColor: AppColors.primary,
-            icon: const Icon(
-              Icons.add_shopping_cart,
-              color: Colors.white,
-            ),
-            label: const Text(
-              'Add to Cart',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+    return Consumer<ProductProvider>(
+      builder: (context, productProvider, child) {
+        try {
+          // Get the latest product data from provider
+          _currentProduct = productProvider.products.firstWhere(
+            (p) => p.id == widget.product.id,
           );
-        },
-      ),
-      body: ListView(
-        children: [
-          _buildImageCarousel(),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Brand and Rating
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      widget.product.brand
-                          .name, // Changed from product.brand to product.brand.name
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 16,
+        } catch (e) {
+          // Product was deleted, navigate back
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.of(context).pop();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('This product is no longer available'),
+                backgroundColor: AppColors.failed,
+              ),
+            );
+          });
+          return const SizedBox();
+        }
+
+        final bool hasDiscount = _currentProduct.discountPrice != null &&
+            _currentProduct.discountPrice! > 0 &&
+            _currentProduct.discountPrice! < _currentProduct.price;
+
+        return Scaffold(
+          backgroundColor: AppColors.bgWhite,
+          appBar: CustomAppBar(title: _currentProduct.viewName),
+          floatingActionButton: Consumer<CartProvider>(
+            builder: (context, cart, child) {
+              return FloatingActionButton.extended(
+                onPressed: () {
+                  try {
+                    // Validate quantity before adding to cart
+                    final (validatedQuantity, warning) =
+                        QuantityValidator.validateQuantity(
+                      productId: _currentProduct.id,
+                      requestedQuantity: _quantity,
+                      cartProvider: cart,
+                      context: context,
+                      product: _currentProduct,  // Add this line
+                    );
+
+                    if (warning != null) {
+                      ScaffoldMessenger.of(context)
+                        ..removeCurrentSnackBar()  // Changed from hideCurrentSnackBar
+                        ..showSnackBar(
+                        SnackBar(
+                          content: Row(
+                            children: [
+                              Icon(
+                                Icons.warning_amber_rounded,
+                                color: AppColors.warning,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  warning,
+                                  style: TextStyle(
+                                    color: AppColors.warning,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          behavior: SnackBarBehavior.floating,
+                          margin: const EdgeInsets.all(10),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(color: AppColors.warning.withOpacity(0.3), width: 1),
+                          ),
+                          backgroundColor: Colors.white,
+                          elevation: 4,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                      if (validatedQuantity <= 0) return;
+                    }
+
+                    cart.addItem(_currentProduct, quantity: validatedQuantity);
+                    _showSnackBar('Added ${AppFormatters.formatQuantity(validatedQuantity, _currentProduct.unit == ProductUnit.kilo)} ${_currentProduct.unit == ProductUnit.kilo ? "kg" : "item(s)"} to cart');
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to add item to cart'),
+                        behavior: SnackBarBehavior.floating,
+                        margin: const EdgeInsets.all(8),
+                        backgroundColor: AppColors.failed,
                       ),
-                    ),
+                    );
+                  }
+                },
+                backgroundColor: AppColors.primary,
+                icon: const Icon(
+                  Icons.add_shopping_cart,
+                  color: Colors.white,
+                ),
+                label: const Text(
+                  'Add to Cart',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              );
+            },
+          ),
+          body: ListView(
+            children: [
+              _buildImageCarousel(),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Warning Section
+                    if (_currentProduct.quantity < 1)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.warning_amber_rounded, color: Colors.red),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                'This item may not be available.',
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (_currentProduct.quantity < 15)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                'Only a few items left!',
+                                style: TextStyle(
+                                  color: Colors.orange,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+
+                    // Brand and Rating
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Icon(Icons.star, color: Colors.amber, size: 20),
-                        const Text('4.5 '),
                         Text(
-                          '(2.5k reviews)',
-                          style: TextStyle(color: Colors.grey[600]),
+                          _currentProduct.brand
+                              .name, // Changed from product.brand to product.brand.name
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 16,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            const Icon(Icons.star, color: Colors.amber, size: 20),
+                            const Text('4.5 '),
+                            Text(
+                              '(2.5k reviews)',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                          ],
                         ),
                       ],
                     ),
+
+                    const SizedBox(height: 8),
+
+                    // Product Name
+                    Text(
+                      _currentProduct.viewName,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Price Section
+                    Row(
+                      children: [
+                        if (hasDiscount) ...[
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                AppFormatters.formatPrice(
+                                    _currentProduct.discountPrice!),
+                                style: const TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '/ ${_currentProduct.unit == ProductUnit.kilo ? 'kilo' : 'piece'}',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 16),
+                          Text(
+                            AppFormatters.formatPrice(_currentProduct.price),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              decoration: TextDecoration.lineThrough,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${(((_currentProduct.price - _currentProduct.discountPrice!) / _currentProduct.price) * 100).round()}% OFF',
+                              style: const TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ] else ...[
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                AppFormatters.formatPrice(_currentProduct.price),
+                                style: const TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '/ ${_currentProduct.unit == ProductUnit.kilo ? 'kilo' : 'piece'}',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Quantity Selector
+                    _buildQuantitySelector(),
+
+                    const SizedBox(height: 24),
+
+                    // Delivery Info
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.local_shipping_outlined),
+                              SizedBox(width: 8),
+                              Text(
+                                'Delivery Information',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Free delivery for orders above \$50',
+                            style: TextStyle(color: Colors.grey[600]),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Estimated delivery: 2-4 business days',
+                            style: TextStyle(color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Description
+                    const Text(
+                      'Description',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _currentProduct.description,
+                      style: TextStyle(
+                        color: Colors.grey[700],
+                        height: 1.5,
+                      ),
+                    ),
                   ],
                 ),
-
-                const SizedBox(height: 8),
-
-                // Product Name
-                Text(
-                  widget.product.viewName,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Price Section
-                Row(
-                  children: [
-                    if (hasDiscount) ...[
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            AppFormatters.formatPrice(
-                                widget.product.discountPrice!),
-                            style: const TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '/ ${widget.product.unit == ProductUnit.kilo ? 'kilo' : 'piece'}',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(width: 16),
-                      Text(
-                        AppFormatters.formatPrice(widget.product.price),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          decoration: TextDecoration.lineThrough,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          '${(((widget.product.price - widget.product.discountPrice!) / widget.product.price) * 100).round()}% OFF',
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ] else ...[
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            AppFormatters.formatPrice(widget.product.price),
-                            style: const TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '/ ${widget.product.unit == ProductUnit.kilo ? 'kilo' : 'piece'}',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-
-                const SizedBox(height: 24),
-
-                // Quantity Selector
-                _buildQuantitySelector(),
-
-                const SizedBox(height: 24),
-
-                // Delivery Info
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.local_shipping_outlined),
-                          SizedBox(width: 8),
-                          Text(
-                            'Delivery Information',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Free delivery for orders above \$50',
-                        style: TextStyle(color: Colors.grey[600]),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Estimated delivery: 2-4 business days',
-                        style: TextStyle(color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Description
-                const Text(
-                  'Description',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  widget.product.description,
-                  style: TextStyle(
-                    color: Colors.grey[700],
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

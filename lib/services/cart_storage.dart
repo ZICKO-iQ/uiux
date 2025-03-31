@@ -19,6 +19,7 @@ class CartStorage {
           'quantity': item.quantity,
           'size': item.size,
           'unit': item.unit.index, // Save enum as index
+          'maxQuantity': item.maxQuantity, // Add this line
         };
       }).toList();
       
@@ -51,6 +52,7 @@ class CartStorage {
           quantity: item['quantity'].toDouble(),
           size: item['size'],
           unit: ProductUnit.values[item['unit']], // Convert index back to enum
+          maxQuantity: item['maxQuantity'] ?? 5, // Add this line with default value
         );
       }).toList();
     } catch (e) {

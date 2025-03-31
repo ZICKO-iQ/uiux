@@ -3,11 +3,12 @@ import 'product.dart';
 class CartItem {
   final String id;
   final String title;
-  final int price;
+  int price; // Change from final to allow updates
   final String image;
   double quantity;
   final String size;
-  final ProductUnit unit;  // Add unit type
+  final ProductUnit unit;
+  final int maxQuantity; // Add this field
 
   CartItem({
     required this.id,
@@ -16,7 +17,8 @@ class CartItem {
     required this.image,
     required this.quantity,
     required this.size,
-    required this.unit,  // Add unit parameter
+    required this.unit,
+    required this.maxQuantity, // Add this parameter
   });
 
   factory CartItem.fromProduct(Product product) {
@@ -34,6 +36,7 @@ class CartItem {
       quantity: product.unit == ProductUnit.kilo ? 0.25 : 1,  // Default quantity based on unit
       size: 'Default',
       unit: product.unit,
+      maxQuantity: product.maxQuantity, // Add this parameter
     );
   }
 

@@ -31,6 +31,8 @@ class Product {
   final int? discountPrice;
   final List<String> images;
   final ProductUnit unit;
+  final int quantity; // Add quantity field
+  final int maxQuantity; // Add maxQuantity field
   
   Product({
     required this.id,
@@ -42,9 +44,23 @@ class Product {
     required this.unit,
     this.price = 0,
     this.discountPrice,
+    required this.quantity, // Initialize quantity
+    required this.maxQuantity, // Initialize maxQuantity
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
+    final quantity = json['quantity']?.toInt() ?? 0;
+    var maxQuantity = json['maxQuantity']?.toInt() ?? 0;
+    
+    // If both quantity and maxQuantity are 0, set maxQuantity to 5
+    if (quantity == 0 && maxQuantity == 0) {
+      maxQuantity = 5;
+    } 
+    // If only maxQuantity is 0, set it equal to quantity
+    else if (maxQuantity == 0) {
+      maxQuantity = quantity;
+    }
+
     return Product(
       id: json['id'] ?? '',
       viewName: json['viewName'] ?? '',
@@ -55,6 +71,8 @@ class Product {
       price: json['price']?.toInt() ?? 0,
       discountPrice: json['discountPrice']?.toInt(),
       unit: json['unit'] == 'kilo' ? ProductUnit.kilo : ProductUnit.piece,  // New field conversion
+      quantity: quantity,
+      maxQuantity: maxQuantity,
     );
   }
 
@@ -86,6 +104,18 @@ class Product {
       ).toList();
     }
 
+    final quantity = (record.data['quantity'] ?? 0).toInt();
+    var maxQuantity = (record.data['max_quantity'] ?? 0).toInt();
+    
+    // If both quantity and maxQuantity are 0, set maxQuantity to 5
+    if (quantity == 0 && maxQuantity == 0) {
+      maxQuantity = 5;
+    }
+    // If only maxQuantity is 0, set it equal to quantity
+    else if (maxQuantity == 0) {
+      maxQuantity = quantity;
+    }
+
     return Product(
       id: record.id,
       viewName: record.data['view_name'] ?? '',
@@ -96,6 +126,8 @@ class Product {
       discountPrice: record.data['discount_price']?.toInt(),
       images: ImageValidator.getInitialImages(images),
       unit: record.data['unit'] == 'kilo' ? ProductUnit.kilo : ProductUnit.piece,
+      quantity: quantity,
+      maxQuantity: maxQuantity,
     );
   }
 

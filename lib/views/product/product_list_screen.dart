@@ -14,15 +14,12 @@ class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   void _initializeProviders(BuildContext context) {
-    // Initialize providers
-    final productProvider = Provider.of<ProductProvider>(context, listen: false);
+    // Initialize only required providers
     final categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
     final brandProvider = Provider.of<BrandProvider>(context, listen: false);
     final filterProvider = Provider.of<FilterProvider>(context, listen: false);
 
-    if (!productProvider.isInitialized) {
-      productProvider.loadProducts();
-    }
+    // ProductProvider now auto-initializes
     if (!categoryProvider.isInitialized) {
       categoryProvider.loadCategories();
     }
@@ -33,7 +30,7 @@ class HomePage extends StatelessWidget {
     filterProvider.initialize(context);
   }
 
-  Widget _buildErrorView(BuildContext context, String message, VoidCallback onRetry) {
+  Widget _buildErrorView(BuildContext context, String message) {
     return Center(
       child: Container(
         padding: const EdgeInsets.all(24),
@@ -56,7 +53,7 @@ class HomePage extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Failed to connect to server',
+              message,
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey[600],
@@ -65,7 +62,10 @@ class HomePage extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: onRetry,
+              onPressed: () {
+                // Use the new refresh method
+                Provider.of<ProductProvider>(context, listen: false).refreshProducts();
+              },
               icon: const Icon(Icons.refresh, color: Colors.white),
               label: const Text('Try Again'),
               style: ElevatedButton.styleFrom(
@@ -120,7 +120,6 @@ class HomePage extends StatelessWidget {
                 return _buildErrorView(
                   context,
                   productProvider.error!,
-                  () => productProvider.refreshProducts(),
                 );
               }
 
@@ -132,60 +131,60 @@ class HomePage extends StatelessWidget {
 
               final filteredProducts = filterProvider.getFilteredAndSortedProducts();
 
-              return Column(
-                children: [
-                  if (filterProvider.hasActiveFilters)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.15),
-                        border: Border(
-                          bottom: BorderSide(
-                            color: AppColors.primary.withOpacity(0.2),
-                            width: 1,
+              return RefreshIndicator(
+                onRefresh: productProvider.refreshProducts,
+                color: AppColors.primary,
+                child: Column(
+                  children: [
+                    if (filterProvider.hasActiveFilters)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.15),
+                          border: Border(
+                            bottom: BorderSide(
+                              color: AppColors.primary.withOpacity(0.2),
+                              width: 1,
+                            ),
                           ),
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.filter_list,
-                            size: 24,
-                            color: AppColors.primary.withOpacity(0.8),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              filterProvider.getActiveFiltersText(),
-                              style: const TextStyle(
-                                color: AppColors.primary,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.filter_list,
+                              size: 24,
+                              color: AppColors.primary.withOpacity(0.8),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                filterProvider.getActiveFiltersText(),
+                                style: const TextStyle(
+                                  color: AppColors.primary,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
-                          ),
-                          InkWell(
-                            onTap: () => filterProvider.clearAllFilters(),
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: AppColors.error.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Icon(
-                                Icons.close,
-                                size: 20,
-                                color: AppColors.error,
+                            InkWell(
+                              onTap: () => filterProvider.clearAllFilters(),
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.error.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Icon(
+                                  Icons.close,
+                                  size: 20,
+                                  color: AppColors.error,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  Expanded(
-                    child: RefreshIndicator(
-                      onRefresh: productProvider.refreshProducts,
-                      color: AppColors.primary,
+                    Expanded(
                       child: CustomScrollView(
                         physics: const AlwaysScrollableScrollPhysics(),
                         slivers: [
@@ -222,8 +221,8 @@ class HomePage extends StatelessWidget {
                         ],
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               );
             },
           );

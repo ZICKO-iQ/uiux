@@ -26,7 +26,7 @@ class _CartItemCardState extends State<CartItemCard> {
     final bool isKilo = widget.item.unit == ProductUnit.kilo;
     final double step = AppFormatters.getQuantityStep(widget.item.unit);
     final double minQuantity = AppFormatters.getMinQuantity(widget.item.unit);
-    final double maxQuantity = AppFormatters.maxQuantity;
+    final double maxQuantity = widget.item.maxQuantity.toDouble();
 
     return Container(
       decoration: BoxDecoration(

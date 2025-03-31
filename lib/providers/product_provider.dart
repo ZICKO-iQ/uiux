@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/pb_service.dart';
 import '../models/product.dart';
+import '../services/pb_service.dart';
 
 class ProductProvider extends ChangeNotifier {
   final _pbService = PocketbaseService();
@@ -10,6 +10,80 @@ class ProductProvider extends ChangeNotifier {
   String? _error;
   bool _isInitialized = false;
   String _sortBy = 'none';
+
+  ProductProvider() {
+    _init();
+  }
+
+  Future<void> _init() async {
+    try {
+      final pb = await _pbService.pb;
+      
+      // Fetch all products initially with expanded relationships
+      final records = await pb.collection('Products').getFullList(
+        expand: 'category_id,brand_id',
+      );
+      
+      // Convert records to Product objects and update state
+      _products = await Future.wait(
+        records.map((record) => Product.fromRecord(record))
+      );
+      
+      print('Initially fetched ${_products.length} products');
+      notifyListeners();
+
+      // Set up real-time subscription with proper options
+      pb.collection('Products').subscribe(
+        '*',
+        (e) async {
+          try {
+            switch (e.action) {
+              case 'create':
+                // Get full record with expanded relationships
+                final newRecord = await pb.collection('Products').getOne(
+                  e.record!.id,
+                  expand: 'category_id,brand_id',
+                );
+                final newProduct = await Product.fromRecord(newRecord);
+                _products.add(newProduct);
+                print('New product added: ${newProduct.viewName}');
+                break;
+              case 'update':
+                final updatedRecord = await pb.collection('Products').getOne(
+                  e.record!.id,
+                  expand: 'category_id,brand_id',
+                );
+                final index = _products.indexWhere((p) => p.id == e.record!.id);
+                if (index != -1) {
+                  final updatedProduct = await Product.fromRecord(updatedRecord);
+                  _products[index] = updatedProduct;
+                  print('Product updated: ${updatedProduct.viewName}');
+                }
+                break;
+              case 'delete':
+                _products.removeWhere((p) => p.id == e.record!.id);
+                print('Product deleted: ${e.record!.id}');
+                break;
+            }
+            
+            // Update filtered products if needed
+            if (_filteredProducts.isNotEmpty) {
+              _filteredProducts = getFilteredProducts();
+            }
+            
+            notifyListeners();
+          } catch (error) {
+            print('Error processing realtime update: $error');
+          }
+        },
+      );
+      
+      _isInitialized = true;
+    } catch (e) {
+      print('Error in ProductProvider init: $e');
+      _error = 'Unable to connect to server. Please check your internet connection.';
+    }
+  }
 
   // Getters
   List<Product> get products => _products;
@@ -42,6 +116,12 @@ class ProductProvider extends ChangeNotifier {
       case 'name_desc':
         sortedProducts.sort((a, b) => b.viewName.compareTo(a.viewName));
         break;
+      case 'quantity_asc': // Add sorting by quantity ascending
+        sortedProducts.sort((a, b) => a.quantity.compareTo(b.quantity));
+        break;
+      case 'quantity_desc': // Add sorting by quantity descending
+        sortedProducts.sort((a, b) => b.quantity.compareTo(a.quantity));
+        break;
     }
     return sortedProducts;
   }
@@ -66,80 +146,14 @@ class ProductProvider extends ChangeNotifier {
         .toList();
   }
 
-  Future<void> loadProducts() async {
-    if (_isInitialized) return;
-    await _loadProductsWithFilter();
-    _isInitialized = true;
-    
-    // Subscribe to realtime updates
-    final pb = await _pbService.pb;
-    pb.collection('products').subscribe('*', (e) async {
-      try {
-        switch (e.action) {
-          case 'create':
-            final newProduct = await Product.fromRecord(e.record!);
-            _products.add(newProduct);
-            break;
-          case 'update':
-            final index = _products.indexWhere((p) => p.id == e.record!.id);
-            if (index != -1) {
-              final updatedProduct = await Product.fromRecord(e.record!);
-              _products[index] = updatedProduct;
-            }
-            break;
-          case 'delete':
-            _products.removeWhere((p) => p.id == e.record!.id);
-            break;
-        }
-        notifyListeners();
-      } catch (e) {
-        print('Error processing realtime update: $e');
-      }
-    });
-  }
-
   Future<void> loadProductsByCategory(String categoryId) async {
-    await _loadProductsWithFilter(filter: 'category_id = "$categoryId"', isFiltered: true);
+    _filteredProducts = getFilteredProducts(categoryId: categoryId);
+    notifyListeners();
   }
 
   Future<void> loadProductsByBrand(String brandId) async {
-    await _loadProductsWithFilter(filter: 'brand_id = "$brandId"', isFiltered: true);
-  }
-
-  Future<void> _loadProductsWithFilter({String? filter, bool isFiltered = false}) async {
-    _isLoading = true;
-    _error = null;
+    _filteredProducts = getFilteredProducts(brandId: brandId);
     notifyListeners();
-
-    try {
-      final pb = await _pbService.pb;
-      final response = await pb.collection('products').getFullList(
-        filter: filter,
-        expand: 'category_id,brand_id'
-      );
-      
-      final loadedProducts = await Future.wait(
-        response.map((record) => Product.fromRecord(record))
-      );
-
-      if (isFiltered) {
-        _filteredProducts = loadedProducts;
-      } else {
-        _products = loadedProducts;
-      }
-      _error = null;
-    } catch (e) {
-      _error = 'Unable to connect to server. Please check your internet connection.';
-      if (isFiltered) {
-        _filteredProducts = [];
-      } else {
-        _products = [];
-        _isInitialized = false;
-      }
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
   }
 
   void clearFilteredProducts() {
@@ -150,12 +164,12 @@ class ProductProvider extends ChangeNotifier {
 
   Future<void> refreshProducts() async {
     _isInitialized = false;
-    await loadProducts();
+    await _init();
   }
 
   @override
   void dispose() {
-    _pbService.pb.then((pb) => pb.collection('products').unsubscribe());
+    _pbService.pb.then((pb) => pb.collection('Products').unsubscribe());
     super.dispose();
   }
 }

@@ -625,7 +625,6 @@ class _CartPageState extends State<CartPage> {
     
     try {
       // Check if this is the last item before removing
-      final isLastItem = cart.items.length == 1;
       final removedItem = cart.removeItem(itemId);
       
       // Show snackbar with undo option
