@@ -5,9 +5,11 @@ import '../models/product.dart';
 import '../models/category.dart';
 import '../models/brand.dart';
 import '../services/search_service.dart';
+import '../services/cache_service.dart';
 
 class SearchProvider with ChangeNotifier {
   final SearchService _searchService = SearchService();
+  final CacheService _cacheService = CacheService();
   SharedPreferences? _prefs;
   static const String _searchHistoryKey = 'search_history';
   static const int _maxHistoryItems = 10;
@@ -27,6 +29,7 @@ class SearchProvider with ChangeNotifier {
 
   SearchProvider() {
     _initPrefs();
+    _initCache();
   }
 
   Future<void> _initPrefs() async {
@@ -48,6 +51,15 @@ class SearchProvider with ChangeNotifier {
       _error = 'Failed to initialize preferences: $e';
       _searchHistory = [];
     } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<void> _initCache() async {
+    try {
+      await _cacheService.initializeCache();
+    } catch (e) {
+      _error = 'Failed to initialize cache: $e';
       notifyListeners();
     }
   }
@@ -261,6 +273,21 @@ class SearchProvider with ChangeNotifier {
     }
 
     return filteredProducts;
+  }
+
+  Future<void> refreshCache() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      await _cacheService.refreshCache();
+      _error = null;
+    } catch (e) {
+      _error = 'Failed to refresh cache: $e';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   @override
