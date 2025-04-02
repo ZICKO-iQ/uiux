@@ -139,7 +139,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           items: _currentProduct.images.map((imageUrl) {
             return ValidatedNetworkImage(
               imageUrl: imageUrl,
-              fit: BoxFit.cover,
+              fit: BoxFit.contain,
               width: double.infinity,
             );
           }).toList(),

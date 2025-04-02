@@ -289,46 +289,33 @@ class BuildItemCard extends StatelessWidget {
     }
 
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      mainAxisSize: MainAxisSize.min,  // Add this
+      mainAxisAlignment: MainAxisAlignment.start, // Changed from spaceBetween
       children: [
         if (product.discountPrice != null && product.discountPrice! > 0) ...[
-          Flexible(
-            child: Text(
-              AppFormatters.formatPrice(product.discountPrice!),
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          Text(
+            AppFormatters.formatPrice(product.discountPrice!), // Show IQD with discount price
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: AppColors.primary,
             ),
           ),
           const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              AppFormatters.formatPrice(product.price),
-              style: TextStyle(
-                fontSize: 12,
-                decoration: TextDecoration.lineThrough,
-                color: Colors.grey[400],
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          Text(
+            product.price.toString(), // Hide IQD from original price
+            style: TextStyle(
+              fontSize: 12,
+              decoration: TextDecoration.lineThrough,
+              color: Colors.grey[400],
             ),
           ),
         ] else
-          Flexible(
-            child: Text(
-              AppFormatters.formatPrice(product.price),
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          Text(
+            AppFormatters.formatPrice(product.price),
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: AppColors.primary,
             ),
           ),
       ],
