@@ -26,6 +26,10 @@ class MatchResult {
 class SearchService {
   final _pbService = PocketbaseService();
 
+  String _normalizeText(String text) {
+    return text.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+  }
+
   int _getMinimumMatchesRequired(int queryLength) {
     if (queryLength < 3) return queryLength; // For very short queries
     if (queryLength <= 5) return 3; // Original minimum
@@ -191,6 +195,33 @@ class SearchService {
     }
   }
 
+  int _calculateMatchScore(String text, List<String> queryChars) {
+    final normalizedText = _normalizeText(text);
+    int score = 0;
+    int consecutiveMatches = 0;
+    int lastMatchIndex = -1;
+
+    for (int i = 0; i < normalizedText.length; i++) {
+      if (queryChars.contains(normalizedText[i])) {
+        score += 10; // Base score for each match
+        
+        // Bonus for consecutive matches
+        if (lastMatchIndex == i - 1) {
+          consecutiveMatches++;
+          score += consecutiveMatches * 5;
+        } else {
+          consecutiveMatches = 0;
+        }
+        
+        // Bonus for matches near the start
+        score += (normalizedText.length - i);
+        
+        lastMatchIndex = i;
+      }
+    }
+    return score;
+  }
+
   Future<SearchResult> search(
     String query, {
     required int page,
@@ -200,134 +231,155 @@ class SearchService {
   }) async {
     try {
       final pb = await _pbService.pb;
-      List<Product> products = [];
-      List<Category> categories = [];
-      List<Brand> brands = [];
+      final normalizedQuery = _normalizeText(query);
+      final queryChars = normalizedQuery.split('');
 
-      // Get all products first (with pagination)
-      List<String> filterConditions = [];
-      
+      // Get products
+      List<String> productFilterConditions = [];
       if (filters != null && filters.isNotEmpty) {
         if (filters['category'] != null) {
-          filterConditions.add('category_id = "${filters['category']}"');
+          productFilterConditions.add('category_id = "${filters['category']}"');
         }
         if (filters['brand'] != null) {
-          filterConditions.add('brand_id = "${filters['brand']}"');
+          productFilterConditions.add('brand_id = "${filters['brand']}"');
         }
         if (filters['price_range'] != null && filters['price_range'] is RangeValues) {
           final range = filters['price_range'] as RangeValues;
-          filterConditions.add('(price >= ${range.start} && price <= ${range.end})');
+          productFilterConditions.add('(price >= ${range.start} && price <= ${range.end})');
         }
       }
 
+      // Build character-based search conditions
+      if (queryChars.isNotEmpty) {
+        final charConditions = queryChars.map((char) => 'view_name ~ "$char"').join(' && ');
+        productFilterConditions.add('($charConditions)');
+      }
+
       final productsResult = await pb.collection('products').getList(
-        filter: filterConditions.isEmpty ? '' : filterConditions.join(' && '),
+        filter: productFilterConditions.join(' && '),
         sort: sortBy == null ? '-created' : _getSortString(sortBy),
         expand: 'category_id,brand_id',
         page: page,
-        perPage: itemsPerPage * 3, // Get more items for better matching
+        perPage: itemsPerPage * 2, // Get more items for filtering
       );
 
-      final allProducts = await Future.wait(
-        productsResult.items.map((record) => Product.fromRecord(record)).toList()
-      );
-
-      // First pass: Get initial scores and identify the best matching product
-      var initialScoredProducts = allProducts
-          .map((product) {
-            var matchResult = _fuzzyMatchWithScore(product.viewName, query);
-            return MapEntry(product, matchResult);
-          })
-          .where((entry) => entry.value.isMatch)
-          .toList()
-        ..sort((a, b) => b.value.score.compareTo(a.value.score));
-
-      // Get the brand and category of the best matching product
-      String? topBrandId;
-      String? topCategoryId;
-      if (initialScoredProducts.isNotEmpty) {
-        var topProduct = initialScoredProducts.first.key;
-        topBrandId = topProduct.brand.id;
-        topCategoryId = topProduct.category.id;
+      // Process products and group by category and brand
+      final categoryMatchCount = <String, int>{};
+      final brandMatchCount = <String, int>{};
+      final Map<String, Map<String, List<Product>>> productsByCategoryAndBrand = {};
+      
+      // First pass: Count matches and group products
+      for (var record in productsResult.items) {
+        final product = await Product.fromRecord(record);
+        final normalizedName = _normalizeText(product.viewName);
+        
+        if (queryChars.every((char) => normalizedName.contains(char))) {
+          final categoryId = product.category.id;
+          final brandId = product.brand.id;
+          
+          // Count category matches
+          categoryMatchCount[categoryId] = (categoryMatchCount[categoryId] ?? 0) + 1;
+          
+          // Count brand matches within category
+          brandMatchCount[brandId] = (brandMatchCount[brandId] ?? 0) + 1;
+          
+          // Group products by category and brand
+          productsByCategoryAndBrand.putIfAbsent(categoryId, () => {});
+          productsByCategoryAndBrand[categoryId]!.putIfAbsent(brandId, () => []);
+          productsByCategoryAndBrand[categoryId]![brandId]!.add(product);
+        }
       }
 
-      // Second pass: Adjust scores with brand and category priority
-      var scoredProducts = allProducts
-          .map((product) {
-            var matchResult = _fuzzyMatchWithScore(product.viewName, query);
-            int baseScore = matchResult.score;
-            
-            // Massive boost for same brand as top result
-            if (product.brand.id == topBrandId) {
-              baseScore += 1000000; // Very high priority for same brand
-            }
-            // Medium boost for same category
-            if (product.category.id == topCategoryId) {
-              baseScore += 10000; // Medium priority for same category
-            }
+      // Sort categories by match count
+      final sortedCategories = categoryMatchCount.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
 
-            return MapEntry(
-              product,
-              MatchResult(
-                matchResult.isMatch,
-                baseScore
-              )
-            );
-          })
-          .where((entry) => entry.value.isMatch)
-          .toList()
-        ..sort((a, b) => b.value.score.compareTo(a.value.score));
+      // Build final product list with nested sorting
+      final List<Product> matchingProducts = [];
+      
+      for (var categoryEntry in sortedCategories) {
+        final categoryId = categoryEntry.key;
+        final brandProducts = productsByCategoryAndBrand[categoryId]!;
+        
+        // Sort brands within this category by match count
+        final sortedBrands = brandProducts.entries.toList()
+          ..sort((a, b) => (brandMatchCount[b.key] ?? 0).compareTo(brandMatchCount[a.key] ?? 0));
+        
+        // Add products from each brand, sorted by match score
+        for (var brandEntry in sortedBrands) {
+          final products = brandEntry.value;
+          products.sort((a, b) => 
+            _calculateMatchScore(b.viewName, queryChars)
+            .compareTo(_calculateMatchScore(a.viewName, queryChars))
+          );
+          matchingProducts.addAll(products);
+        }
+      }
 
-      products = scoredProducts
-          .map((entry) => entry.key)
-          .take(itemsPerPage)
-          .toList();
+      // Handle pagination
+      final startIndex = (page - 1) * itemsPerPage;
+      final endIndex = startIndex + itemsPerPage;
+      final List<Product> pagedProducts;
+      
+      if (startIndex < matchingProducts.length) {
+        pagedProducts = matchingProducts.sublist(
+          startIndex,
+          endIndex < matchingProducts.length ? endIndex : matchingProducts.length
+        );
+      } else {
+        pagedProducts = [];
+      }
 
-      // If no products found or on first page, search categories and brands
-      if (products.isEmpty || page == 1) {
+      List<Category> categories = [];
+      List<Brand> brands = [];
+
+      if (page == 1) {
         final categoriesResult = await pb.collection('categories').getList(
+          filter: queryChars.map((char) => 'name ~ "$char"').join(' && '),
           page: 1,
-          perPage: 50,
+          perPage: 10,
         );
         
-        var scoredCategories = categoriesResult.items
+        // Score categories and sort by match count
+        final scoredCategories = categoriesResult.items
             .map((record) => Category.fromRecord(record))
-            .map((category) {
-              var matchResult = _fuzzyMatchWithScore(category.name, query);
-              return MapEntry(category, matchResult);
-            })
-            .where((entry) => entry.value.isMatch)
+            .where((category) => queryChars.every(
+              (char) => _normalizeText(category.name).contains(char)
+            ))
+            .map((category) => MapEntry(
+              category,
+              (categoryMatchCount[category.id] ?? 0) * 1000 + // Prioritize by match count
+              _calculateMatchScore(category.name, queryChars)
+            ))
             .toList()
-          ..sort((a, b) => b.value.score.compareTo(a.value.score));
-
-        categories = scoredCategories
-            .map((entry) => entry.key)
-            .take(10)
-            .toList();
+          ..sort((a, b) => b.value.compareTo(a.value));
+        
+        categories = scoredCategories.map((e) => e.key).toList();
 
         final brandsResult = await pb.collection('brands').getList(
+          filter: queryChars.map((char) => 'name ~ "$char"').join(' && '),
           page: 1,
-          perPage: 50,
+          perPage: 10,
         );
         
-        var scoredBrands = brandsResult.items
+        // Score and sort brands
+        final scoredBrands = brandsResult.items
             .map((record) => Brand.fromRecord(record))
-            .map((brand) {
-              var matchResult = _fuzzyMatchWithScore(brand.name, query);
-              return MapEntry(brand, matchResult);
-            })
-            .where((entry) => entry.value.isMatch)
+            .where((brand) => queryChars.every(
+              (char) => _normalizeText(brand.name).contains(char)
+            ))
+            .map((brand) => MapEntry(
+              brand,
+              _calculateMatchScore(brand.name, queryChars)
+            ))
             .toList()
-          ..sort((a, b) => b.value.score.compareTo(a.value.score));
-
-        brands = scoredBrands
-            .map((entry) => entry.key)
-            .take(10)
-            .toList();
+          ..sort((a, b) => b.value.compareTo(a.value));
+        
+        brands = scoredBrands.map((e) => e.key).toList();
       }
 
       return SearchResult(
-        products: products,
+        products: pagedProducts,
         categories: categories,
         brands: brands,
       );
