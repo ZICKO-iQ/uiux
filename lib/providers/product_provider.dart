@@ -18,17 +18,19 @@ class ProductProvider extends ChangeNotifier {
   Future<void> _init() async {
     try {
       final pb = await _pbService.pb;
-      
+
       // Fetch all products initially with expanded relationships
       final records = await pb.collection('Products').getFullList(
-        expand: 'category_id,brand_id',
-      );
-      
+            expand: 'category_id,brand_id',
+          );
+
       // Convert records to Product objects and update state
       _products = await Future.wait(
-        records.map((record) => Product.fromRecord(record))
-      );
-      
+          records.map((record) => Product.fromRecord(record)));
+
+      // Shuffle products on initial load
+      _products.shuffle();
+
       print('Initially fetched ${_products.length} products');
       notifyListeners();
 
@@ -37,25 +39,44 @@ class ProductProvider extends ChangeNotifier {
         '*',
         (e) async {
           try {
+            // Assume you have a helper method to get the previous version of the product
+            // This could be stored in a local cache or state management solution.
+            final previousProduct = _products.firstWhere(
+              (p) => p.id == e.record!.id,
+            );
+
+            // Get full record with expanded relationships
+            final updatedRecord = await pb.collection('Products').getOne(
+                  e.record!.id,
+                  expand: 'category_id,brand_id',
+                );
+
+            // Create a Product instance from the updated record
+            final updatedProduct = await Product.fromRecord(updatedRecord);
+
+            // Check if the price or discount_price have changed
+            bool shouldUpdate = false;
+            if (previousProduct.price != updatedProduct.price ||
+                previousProduct.discountPrice !=
+                    updatedProduct.discountPrice) {
+              shouldUpdate = true;
+            }
+          
+            if (!shouldUpdate) {
+              // If neither price nor discount_price changed, do nothing.
+              return;
+            }
+
+            // Handle actions based on the realtime event
             switch (e.action) {
               case 'create':
-                // Get full record with expanded relationships
-                final newRecord = await pb.collection('Products').getOne(
-                  e.record!.id,
-                  expand: 'category_id,brand_id',
-                );
-                final newProduct = await Product.fromRecord(newRecord);
-                _products.add(newProduct);
-                print('New product added: ${newProduct.viewName}');
+                _products.add(updatedProduct);
+                print('New product added: ${updatedProduct.viewName}');
                 break;
               case 'update':
-                final updatedRecord = await pb.collection('Products').getOne(
-                  e.record!.id,
-                  expand: 'category_id,brand_id',
-                );
                 final index = _products.indexWhere((p) => p.id == e.record!.id);
                 if (index != -1) {
-                  final updatedProduct = await Product.fromRecord(updatedRecord);
+                  // Update product while maintaining its position
                   _products[index] = updatedProduct;
                   print('Product updated: ${updatedProduct.viewName}');
                 }
@@ -65,23 +86,24 @@ class ProductProvider extends ChangeNotifier {
                 print('Product deleted: ${e.record!.id}');
                 break;
             }
-            
+
             // Update filtered products if needed
             if (_filteredProducts.isNotEmpty) {
               _filteredProducts = getFilteredProducts();
             }
-            
+
             notifyListeners();
           } catch (error) {
             print('Error processing realtime update: $error');
           }
         },
       );
-      
+
       _isInitialized = true;
     } catch (e) {
       print('Error in ProductProvider init: $e');
-      _error = 'Unable to connect to server. Please check your internet connection.';
+      _error =
+          'Unable to connect to server. Please check your internet connection.';
     }
   }
 
@@ -95,7 +117,8 @@ class ProductProvider extends ChangeNotifier {
 
   List<Product> getFilteredProducts({String? categoryId, String? brandId}) {
     return _products.where((product) {
-      bool matchesCategory = categoryId == null || product.category.id == categoryId;
+      bool matchesCategory =
+          categoryId == null || product.category.id == categoryId;
       bool matchesBrand = brandId == null || product.brand.id == brandId;
       return matchesCategory && matchesBrand;
     }).toList();
@@ -133,12 +156,9 @@ class ProductProvider extends ChangeNotifier {
 
   List<String> getBrandsForCategory(String? categoryId) {
     if (categoryId == null) {
-      return _products
-          .map((p) => p.brand.id)
-          .toSet()
-          .toList();
+      return _products.map((p) => p.brand.id).toSet().toList();
     }
-    
+
     return _products
         .where((p) => p.category.id == categoryId)
         .map((p) => p.brand.id)
@@ -164,7 +184,26 @@ class ProductProvider extends ChangeNotifier {
 
   Future<void> refreshProducts() async {
     _isInitialized = false;
-    await _init();
+    final pb = await _pbService.pb;
+    
+    try {
+      final records = await pb.collection('Products').getFullList(
+            expand: 'category_id,brand_id',
+          );
+
+      _products = await Future.wait(
+          records.map((record) => Product.fromRecord(record)));
+      
+      // Shuffle products on refresh
+      _products.shuffle();
+      
+      _isInitialized = true;
+      notifyListeners();
+    } catch (e) {
+      print('Error refreshing products: $e');
+      _error = 'Unable to refresh products. Please try again.';
+      notifyListeners();
+    }
   }
 
   @override
