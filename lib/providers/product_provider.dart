@@ -16,6 +16,10 @@ class ProductProvider extends ChangeNotifier {
   }
 
   Future<void> _init() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
     try {
       final pb = await _pbService.pb;
 
@@ -104,6 +108,10 @@ class ProductProvider extends ChangeNotifier {
       print('Error in ProductProvider init: $e');
       _error =
           'Unable to connect to server. Please check your internet connection.';
+      _products = [];
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -167,26 +175,62 @@ class ProductProvider extends ChangeNotifier {
   }
 
   Future<void> loadProductsByCategory(String categoryId) async {
-    _filteredProducts = getFilteredProducts(categoryId: categoryId);
+    _isLoading = true;
+    _error = null;
     notifyListeners();
+
+    try {
+      final pb = await _pbService.pb;
+      final records = await pb.collection('Products').getFullList(
+            expand: 'category_id,brand_id',
+            filter: 'category_id = "${categoryId}"',
+          );
+
+      final products = await Future.wait(
+          records.map((record) => Product.fromRecord(record)));
+      _filteredProducts = products;
+      _error = null;
+    } catch (e) {
+      _error = 'Unable to load products. Please check your connection.';
+      _filteredProducts = [];
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> loadProductsByBrand(String brandId) async {
-    _filteredProducts = getFilteredProducts(brandId: brandId);
-    notifyListeners();
-  }
-
-  void clearFilteredProducts() {
-    _filteredProducts = [];
+    _isLoading = true;
     _error = null;
     notifyListeners();
+
+    try {
+      final pb = await _pbService.pb;
+      final records = await pb.collection('Products').getFullList(
+            expand: 'category_id,brand_id',
+            filter: 'brand_id = "${brandId}"',
+          );
+
+      final products = await Future.wait(
+          records.map((record) => Product.fromRecord(record)));
+      _filteredProducts = products;
+      _error = null;
+    } catch (e) {
+      _error = 'Unable to load products. Please check your connection.';
+      _filteredProducts = [];
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> refreshProducts() async {
-    _isInitialized = false;
-    final pb = await _pbService.pb;
-    
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
     try {
+      final pb = await _pbService.pb;
       final records = await pb.collection('Products').getFullList(
             expand: 'category_id,brand_id',
           );
@@ -194,16 +238,26 @@ class ProductProvider extends ChangeNotifier {
       _products = await Future.wait(
           records.map((record) => Product.fromRecord(record)));
       
-      // Shuffle products on refresh
-      _products.shuffle();
+      // Refresh filtered products if any
+      if (_filteredProducts.isNotEmpty) {
+        _filteredProducts = getFilteredProducts();
+      }
       
+      _products.shuffle();
+      _error = null;
       _isInitialized = true;
-      notifyListeners();
     } catch (e) {
-      print('Error refreshing products: $e');
-      _error = 'Unable to refresh products. Please try again.';
+      _error = 'Unable to refresh products. Please check your connection.';
+    } finally {
+      _isLoading = false;
       notifyListeners();
     }
+  }
+
+  void clearFilteredProducts() {
+    _filteredProducts = [];
+    _error = null;
+    notifyListeners();
   }
 
   @override

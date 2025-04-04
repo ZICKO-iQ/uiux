@@ -43,23 +43,59 @@ class FilteredProductScreen extends StatelessWidget {
 
           if (provider.error != null) {
             return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 60, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text(provider.error!),
-                  TextButton(
-                    onPressed: () {
-                      if (categoryId != null) {
-                        provider.loadProductsByCategory(categoryId!);
-                      } else if (brandId != null) {
-                        provider.loadProductsByBrand(brandId!);
-                      }
-                    },
-                    child: const Text('Retry'),
-                  ),
-                ],
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.cloud_off_rounded,
+                      size: 64,
+                      color: Colors.grey,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Connection Error',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      provider.error!,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey[600],
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        if (categoryId != null) {
+                          provider.loadProductsByCategory(categoryId!);
+                        } else if (brandId != null) {
+                          provider.loadProductsByBrand(brandId!);
+                        }
+                      },
+                      icon: const Icon(Icons.refresh, color: Colors.white),
+                      label: const Text('Try Again'),
+                      style: ElevatedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           }
