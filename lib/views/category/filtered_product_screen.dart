@@ -130,8 +130,13 @@ class FilteredProductScreen extends StatelessWidget {
               itemCount: products.length,
               itemBuilder: (context, index) {
                 final product = products[index];
-                return BuildItemCard(product: product);
+                return BuildItemCard(
+                  product: product,
+                  loadingDelayIndex: index,
+                  key: ValueKey(product.id),
+                );
               },
+              addAutomaticKeepAlives: true, // Add this line
             ),
           );
         },

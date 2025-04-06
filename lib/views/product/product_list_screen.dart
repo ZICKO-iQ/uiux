@@ -216,9 +216,13 @@ class HomePage extends StatelessWidget {
                               delegate: SliverChildBuilderDelegate(
                                 (context, index) {
                                   final product = filteredProducts[index];
-                                  return BuildItemCard(product: product);
+                                  return BuildItemCard(
+                                    product: product,
+                                    loadingDelayIndex: index,
+                                  );
                                 },
                                 childCount: filteredProducts.length,
+                                addAutomaticKeepAlives: true,
                               ),
                             ),
                           ),

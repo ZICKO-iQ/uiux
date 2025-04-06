@@ -8,19 +8,31 @@ import '../../utils/image_validator.dart';
 import '../../utils/formatters.dart';  // Add this import
 import '../../utils/quantity_validator.dart';  // Add this import
 
-class BuildItemCard extends StatelessWidget {
+class BuildItemCard extends StatefulWidget {
   const BuildItemCard({
     super.key,
     required this.product,
+    this.loadingDelayIndex = 0,
   });
 
   final Product product;
+  final int loadingDelayIndex;
 
-  bool get _hasValidPrice => product.price > 0 || 
-      (product.discountPrice != null && product.discountPrice! > 0);
+  @override
+  State<BuildItemCard> createState() => _BuildItemCardState();
+}
+
+class _BuildItemCardState extends State<BuildItemCard> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  bool get _hasValidPrice => widget.product.price > 0 || 
+      (widget.product.discountPrice != null && widget.product.discountPrice! > 0);
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);  // Required by AutomaticKeepAliveClientMixin
+
     final screenWidth = MediaQuery.of(context).size.width;
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
     final imageHeight = isLandscape 
@@ -54,7 +66,7 @@ class BuildItemCard extends StatelessWidget {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ProductDetailScreen(product: product),
+                  builder: (context) => ProductDetailScreen(product: widget.product),
                 ),
               ),
               child: Column(
@@ -77,7 +89,7 @@ class BuildItemCard extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  product.brand.name,
+                                  widget.product.brand.name,
                                   style: TextStyle(
                                     fontSize: brandFontSize * 0.85, // Made slightly smaller
                                     color: Colors.grey[600],
@@ -87,7 +99,7 @@ class BuildItemCard extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 1),
                                 Text(
-                                  product.viewName,
+                                  widget.product.viewName,
                                   style: TextStyle(
                                     fontSize: nameFontSize * 1.1, // Made slightly bigger
                                     fontWeight: FontWeight.w500, // Less bold
@@ -109,7 +121,7 @@ class BuildItemCard extends StatelessWidget {
               ),
             ),
           ),
-          if (product.quantity < 15) // Show circular icon for low quantity
+          if (widget.product.quantity < 15) // Show circular icon for low quantity
             Positioned(
               top: 8,
               left: 8,
@@ -117,7 +129,7 @@ class BuildItemCard extends StatelessWidget {
                 width: 24,
                 height: 24,
                 decoration: BoxDecoration(
-                  color: product.quantity < 1 ? Colors.red : Colors.orange, // Red for <1, Orange for <15
+                  color: widget.product.quantity < 1 ? Colors.red : Colors.orange, // Red for <1, Orange for <15
                   shape: BoxShape.circle,
                 ),
                 child: const Center(
@@ -137,8 +149,8 @@ class BuildItemCard extends StatelessWidget {
             right: 8,
             child: Consumer<CartProvider>(
               builder: (context, cart, child) {
-                final bool isInCart = cart.hasItem(product.id);
-                final double quantity = cart.getItemQuantity(product.id);  // Changed from int to double
+                final bool isInCart = cart.hasItem(widget.product.id);
+                final double quantity = cart.getItemQuantity(widget.product.id);  // Changed from int to double
 
                 return Container(
                   decoration: BoxDecoration(
@@ -158,15 +170,15 @@ class BuildItemCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                       onTap: _hasValidPrice ? () {
                         final (adjustedQuantity, warning) = QuantityValidator.validateQuantity(
-                          productId: product.id,
+                          productId: widget.product.id,
                           requestedQuantity: 1.0,
                           cartProvider: cart,
                           context: context,
-                          product: product,  // Add this line
+                          product: widget.product,  // Add this line
                         );
 
                         if (adjustedQuantity > 0) {
-                          cart.addItem(product);
+                          cart.addItem(widget.product);
                           
                           ScaffoldMessenger.of(context)
                             ..removeCurrentSnackBar()  // Changed from hideCurrentSnackBar
@@ -252,7 +264,7 @@ class BuildItemCard extends StatelessWidget {
                               Text(
                                 AppFormatters.formatQuantity(
                                   quantity,
-                                  product.unit == ProductUnit.kilo
+                                  widget.product.unit == ProductUnit.kilo
                                 ),
                                 style: const TextStyle(
                                   color: Colors.white,
@@ -291,9 +303,9 @@ class BuildItemCard extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.start, // Changed from spaceBetween
       children: [
-        if (product.discountPrice != null && product.discountPrice! > 0) ...[
+        if (widget.product.discountPrice != null && widget.product.discountPrice! > 0) ...[
           Text(
-            AppFormatters.formatPrice(product.discountPrice!), // Show IQD with discount price
+            AppFormatters.formatPrice(widget.product.discountPrice!), // Show IQD with discount price
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
@@ -302,7 +314,7 @@ class BuildItemCard extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Text(
-            product.price.toString(), // Hide IQD from original price
+            widget.product.price.toString(), // Hide IQD from original price
             style: TextStyle(
               fontSize: 12,
               decoration: TextDecoration.lineThrough,
@@ -311,7 +323,7 @@ class BuildItemCard extends StatelessWidget {
           ),
         ] else
           Text(
-            AppFormatters.formatPrice(product.price),
+            AppFormatters.formatPrice(widget.product.price),
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
@@ -330,10 +342,26 @@ class BuildItemCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         child: Center(
-          child: product.images.isNotEmpty
-              ? ValidatedNetworkImage(
-                  imageUrl: product.images.first,
-                  fit: BoxFit.cover,
+          child: widget.product.images.isNotEmpty
+              ? FutureBuilder(
+                  future: Future.delayed(
+                    Duration(milliseconds: widget.loadingDelayIndex * 10),
+                    () => widget.product.images.first,
+                  ),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                        ),
+                      );
+                    }
+                    return ValidatedNetworkImage(
+                      imageUrl: snapshot.data!,
+                      fit: BoxFit.cover,
+                    );
+                  },
                 )
               : Image.asset(
                   'assets/images/placeholder.png',
