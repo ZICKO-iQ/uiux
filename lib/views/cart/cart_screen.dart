@@ -427,16 +427,34 @@ class _CartPageState extends State<CartPage> {
     // Clean the phone number and ensure proper format
     final cleanPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
     
-    // Try both URL formats for better compatibility
+    // Try multiple URL formats and schemes for better device compatibility
     final urls = [
+      // Standard WhatsApp URL
       Uri.parse('https://wa.me/$cleanPhone?text=${Uri.encodeComponent(message)}'),
+      // WhatsApp direct scheme
       Uri.parse('whatsapp://send?phone=$cleanPhone&text=${Uri.encodeComponent(message)}'),
+      // Alternative format that works better on some devices
+      Uri.parse('https://api.whatsapp.com/send?phone=$cleanPhone&text=${Uri.encodeComponent(message)}'),
+      // Intent format that works better on some Android devices
+      Uri.parse('intent://send?phone=$cleanPhone&text=${Uri.encodeComponent(message)}#Intent;scheme=whatsapp;package=com.whatsapp;end'),
     ];
 
     bool launched = false;
+    Exception? lastError;
+
+    // Try each URL format until one works
     for (var url in urls) {
       try {
         if (await canLaunchUrl(url)) {
+          launched = await launchUrl(
+            url,
+            mode: LaunchMode.externalNonBrowserApplication, // Try non-browser mode first
+          );
+          if (launched) break;
+        }
+        
+        // If non-browser mode failed, try external application mode
+        if (!launched) {
           launched = await launchUrl(
             url,
             mode: LaunchMode.externalApplication,
@@ -444,18 +462,33 @@ class _CartPageState extends State<CartPage> {
           if (launched) break;
         }
       } catch (e) {
-        print('Error launching WhatsApp: $e');
+        lastError = e as Exception;
+        // Continue trying other URLs
       }
     }
 
     if (!launched) {
       if (!context.mounted) return;
-      // Fallback to clipboard
+      
+      // Fallback to clipboard with enhanced user feedback
       await Clipboard.setData(ClipboardData(text: message));
+      
+      // Show a more detailed message with instructions
       _showStyledSnackBar(
-        message: 'Could not open WhatsApp. Cart details copied to clipboard instead.',
+        message: 'WhatsApp could not be opened automatically. The message has been copied to your clipboard. Please open WhatsApp manually and paste the message.',
         icon: Icons.content_copy,
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: 'OK',
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
       );
+      
+      if (lastError != null) {
+        print('WhatsApp launch error: $lastError'); // For debugging
+      }
     }
   }
 

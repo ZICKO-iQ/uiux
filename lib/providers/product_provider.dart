@@ -61,11 +61,10 @@ class ProductProvider extends ChangeNotifier {
             // Check if the price or discount_price have changed
             bool shouldUpdate = false;
             if (previousProduct.price != updatedProduct.price ||
-                previousProduct.discountPrice !=
-                    updatedProduct.discountPrice) {
+                previousProduct.discountPrice != updatedProduct.discountPrice) {
               shouldUpdate = true;
             }
-          
+
             if (!shouldUpdate) {
               // If neither price nor discount_price changed, do nothing.
               return;
@@ -237,12 +236,12 @@ class ProductProvider extends ChangeNotifier {
 
       _products = await Future.wait(
           records.map((record) => Product.fromRecord(record)));
-      
+
       // Refresh filtered products if any
       if (_filteredProducts.isNotEmpty) {
         _filteredProducts = getFilteredProducts();
       }
-      
+
       _products.shuffle();
       _error = null;
       _isInitialized = true;
